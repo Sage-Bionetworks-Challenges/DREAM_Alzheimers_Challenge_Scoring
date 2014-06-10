@@ -1,6 +1,6 @@
 Hello {username},
 
-Sorry, but we were unable to process your submission to the {evaluation_name} ({evaluation_id}). 
+Sorry, but an error occurred while scoring your submission to the {evaluation_name} ({evaluation_id}).
 
 submission name: {submission_name}
 submission ID: {submission_id}

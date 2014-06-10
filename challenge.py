@@ -5,6 +5,12 @@ from synapseclient import Activity
 from synapseclient import Project, Folder, File
 from synapseclient import Evaluation, Submission, SubmissionStatus
 from synapseclient import Wiki
+
+from datetime import datetime, timedelta
+from itertools import izip
+from StringIO import StringIO
+
+import lock
 import argparse
 import json
 import math
@@ -27,12 +33,28 @@ syn = synapseclient.Synapse()
 
 
 ## Evaluation queues
-evaluation_q1a = 2480744
-evaluation_q1b = 2480746
-evaluation_q2  = 2480748
-evaluation_q3  = 2480750
+# evaluation_queues = [
+#     {
+#         'id':2480744,
+#         'scoring_function': 'score_q1a'
+#     }, {
+#         'id':2480746,
+#         'scoring_function': 'score_q1b'
+#     }, {
+#         'id':2480748,
+#         'scoring_function': 'score_q2'
+#     }, {
+#         'id':2480750,
+#         'scoring_function': 'score_q3'
+#     }
+# ]
 
-evaluation_test = 2495614
+evaluation_queues = [
+    {
+        'id':2495614,
+        'scoring_function': 'score_submission'
+    }
+]
 
 
 ## read in email templates
@@ -42,6 +64,11 @@ with open("templates/confirmation_email.txt") as f:
 with open("templates/validation_error_email.txt") as f:
     validation_error_template = f.read()
 
+with open("templates/scored_email.txt") as f:
+    scored_template = f.read()
+
+with open("templates/scoring_error_email.txt") as f:
+    scoring_error_template = f.read()
 
 
 def update_submissions_status_batch(evaluation, statuses):
@@ -66,74 +93,86 @@ def update_submissions_status_batch(evaluation, statuses):
                 raise
 
 
-def validate_submission(file_path):    
-    try:
-        return True, "OK"
-    except Exception as ex1:
-        sys.stderr.write('Error processing file %s\n' % file_path)
-        traceback.print_exc(file=sys.stderr)
-        status.status = "INVALID"
+def send_message(template, submission, status, evaluation, message):
+    profile = syn.getUserProfile(submission.userId)
+
+    print "sending message to %s" % submission.userId
+
+    ## fill in the template
+    message_body = template.format(
+        username=profile.get('firstName', profile.get('userName', profile['ownerId'])),
+        submission_id=submission.id,
+        submission_name=submission.name,
+        evaluation_id=evaluation.id,
+        evaluation_name=evaluation.name,
+        team= submission.submitterAlias if submission.submitterAlias else 'unknown',
+        message=message)
+
+    return syn.sendMessage(
+        userIds=[submission.userId],
+        messageSubject="Submission to %s, %s" % (evaluation.name, status),
+        messageBody=message_body)
 
 
-def validate(evaluation, **kwargs):
+def validate_submission(submission, status):
+    status.status = "VALIDATED" 
+    return status, "OK"
+
+
+def validate(evaluation, validation_func=validate_submission, send_messages=False):
     """
     It may be convenient to validate submissions in one pass before scoring
     them, especially if scoring takes a long time.
     """
+    sys.stdout.write('validating: %s %s\n' % (evaluation.id, evaluation.name))
+    sys.stdout.flush()
+
+    count = 0
+
     for submission, status in syn.getSubmissionBundles(evaluation, status='RECEIVED'):
 
         ## refetch the submission so that we get the file path
         ## to be later replaced by a "downloadFiles" flag on getSubmissionBundles
         submission = syn.getSubmission(submission)
+        count += 1
 
-        is_valid, validation_message = validate_submission(submission.filePath)
-        print validation_message
-        if is_valid:
-            status.status = "VALIDATED"
-        else:
+        try:
+            status, validation_message = validation_func(submission, status)
+        except Exception as ex1:
+            sys.stderr.write('Error scoring submission %s %s:\n' % (submission.name, submission.id))
+            st = StringIO()
+            traceback.print_exc(file=st)
+            sys.stderr.write(st.getvalue())
+            sys.stderr.write('\n')
             status.status = "INVALID"
+            validation_message = st.getvalue()
 
         syn.store(status)
 
         ## send message AFTER storing status to ensure we don't get repeat messages
-        if kwargs.get('send-messages', False):
-            profile = syn.getUserProfile(submission.userId)
+        if send_messages:
+            template = confirmation_template if status.status=="VALIDATED" else validation_error_template
+            print send_message(template, submission, status.status, evaluation, validation_message)
 
-            msg_params = dict(
-                username=profile.get('firstName', profile.get('userName', profile['ownerId'])),
-                submission_id=submission.id,
-                submission_name=submission.name,
-                evaluation_id=evaluation.id,
-                evaluation_name=evaluation.name,
-                team= submission.submitterAlias if submission.submitterAlias else 'unknown',
-                message=validation_message)
+        print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
 
-            ## fill in the appropriate template
-            template = confirmation_template if is_valid else validation_error_template
-            message = template.format(**msg_params)
-
-            syn.sendMessage(
-                userIds=[submission.userId],
-                messageSubject="Submission to %s (%s)" % (evaluation.name, "OK" if is_valid else "INVALID"),
-                messageBody=message)
+    print "validated %d submissions." % count
 
 
-def score_submission(file_path):
-    try:
-        return random.random()
-    except Exception as ex1:
-        sys.stderr.write('Error processing file %s\n' % file_path)
-        traceback.print_exc(file=sys.stderr)
-        status.status = "INVALID"
+def score_submission(submission, status):
+    status.status = "SCORED"
+    return status, "OK"
 
 
-def score(evaluation):
+def score(evaluation, scoring_func=score_submission, send_messages=False):
 
     sys.stdout.write('scoring: %s %s\n' % (evaluation.id, evaluation.name))
     sys.stdout.flush()
 
     ## collect statuses here for batch update
     statuses = []
+    submissions = []
+    messages = []
 
     for submission, status in syn.getSubmissionBundles(evaluation, status='VALIDATED'):
 
@@ -141,27 +180,37 @@ def score(evaluation):
         ## to be later replaced by a "downloadFiles" flag on getSubmissionBundles
         submission = syn.getSubmission(submission)
 
-        score = score_submission(submission.filePath)
-        status.score = score
-        status.annotations = synapseclient.annotations.to_submission_status_annotations(
-            dict(bayesian_whatsajigger=random.random(),
-                 root_mean_squared_flapdoodle=random.random()))
-        status.status = "SCORED"
+        try:
+            status, msg = scoring_func(submission, status)
+            messages.append(msg)
+        except Exception as ex1:
+            sys.stderr.write('Error scoring submission %s %s:\n' % (submission.name, submission.id))
+            st = StringIO()
+            traceback.print_exc(file=st)
+            sys.stderr.write(st.getvalue())
+            sys.stderr.write('\n')
+            status.status = "INVALID"
+            messages.append(st.getvalue())
 
         ## we could store each status update individually, but in this example
         ## we collect the updated status objects to do a batch update.
         #status = syn.store(status)
         statuses.append(status)
+        submissions.append(submission)
 
-        sys.stdout.write('.')
-        sys.stdout.flush()
-
-    sys.stdout.write('\n')
+        print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
 
     ## Update statuses in batch. This can be much faster than individual updates,
     ## especially in rank based scoring methods which recalculate scores for all
     ## submissions each time a new submission is received.
     update_submissions_status_batch(evaluation, statuses)
+
+    if send_messages:
+        for submission, status, message in izip(submissions, statuses, messages):
+            template = scored_template if status.status=="SCORED" else scoring_error_template
+            print send_message(template, submission, status.status, evaluation, message)
+
+    print "scored %d submissions." % len(submissions)
 
 
 def list_submissions(evaluation, status=None, **kwargs):
@@ -173,21 +222,50 @@ def list_submissions(evaluation, status=None, **kwargs):
         print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
 
 
-
-# list submissions (with a particular status?)
-# score an evaluation
-# check status of a submission by ID
-# reset a submission for rescoring
-# update leaderboards
-
 def command_list(args):
     list_submissions(evaluation=syn.getEvaluation(args.evaluation),
                      status=args.status)
 
 
 def command_validate(args):
-    validate(evaluation=syn.getEvaluation(args.evaluation))
+    validate(evaluation=syn.getEvaluation(args.evaluation),
+             send_messages=args.send_messages)
 
+
+def command_score(args):
+    score(evaluation=syn.getEvaluation(args.evaluation),
+             send_messages=args.send_messages)
+
+
+def command_check_status(args):
+    submission = syn.getSubmission(args.submission)
+    status = syn.getSubmissionStatus(args.submission)
+    evaluation = syn.getEvaluation(submission.evaluationId)
+    ## deleting the entity key is a hack to work around a bug which prevents
+    ## us from printing a submission
+    del submission['entity']
+    print evaluation
+    print submission
+    print status
+
+
+def command_reset(args):
+    status = syn.getSubmissionStatus(args.submission)
+    status.status = 'RECEIVED'
+    print syn.store(status)
+
+
+def command_score_challenge(args):
+    for evaluation_queue in evaluation_queues:
+        evaluation = syn.getEvaluation(evaluation_queue['id'])
+
+        validate(evaluation=evaluation, send_messages=args.send_messages)
+
+        if evaluation_queue['scoring_function'] in globals():
+            scoring_function = globals()[evaluation_queue['scoring_function']]
+            score(evaluation, scoring_function, send_messages=args.send_messages)
+        else:
+            sys.stderr.write("Can't find scoring function \"%s\" for evaluation %s \"%s\"" % (evaluation_queue['scoring_function'], evaluation.id, evaluation.name))
 
 
 def challenge():
@@ -206,14 +284,44 @@ def challenge():
 
     parser_validate = subparsers.add_parser('validate')
     parser_validate.add_argument("evaluation", metavar="EVALUATION-ID", default=None)
+    parser_validate.add_argument("--send-messages", action="store_true", default=False)
     parser_validate.set_defaults(func=command_validate)
 
+    parser_score = subparsers.add_parser('score')
+    parser_score.add_argument("evaluation", metavar="EVALUATION-ID", default=None)
+    parser_score.add_argument("--send-messages", action="store_true", default=False)
+    parser_score.set_defaults(func=command_score)
+
+    parser_status = subparsers.add_parser('status')
+    parser_status.add_argument("submission")
+    parser_status.set_defaults(func=command_check_status)
+
+    parser_reset = subparsers.add_parser('reset')
+    parser_reset.add_argument("submission")
+    parser_reset.set_defaults(func=command_reset)
+
+    parser_score_challenge = subparsers.add_parser('score-challenge')
+    parser_score_challenge.add_argument("--send-messages", action="store_true", default=False)
+    parser_score_challenge.set_defaults(func=command_score_challenge)
+ 
     args = parser.parse_args()
 
+    try:
+        update_lock = lock.acquire_lock_or_fail('challenge', max_age=timedelta(hours=4))
+    except lock.LockedException:
+        print u"Is benchmark_manage_update already running? Can't acquire lock."
+        # can't acquire lock, so return error code 75 which is a
+        # temporary error according to /usr/include/sysexits.h
+        return 75
 
-    syn.login(email=args.user, password=args.password)
+    try:
 
-    args.func(args)
+        syn.login(email=args.user, password=args.password)
+    
+        args.func(args)
+
+    finally:
+        update_lock.release()
 
 
 if __name__ == '__main__':
