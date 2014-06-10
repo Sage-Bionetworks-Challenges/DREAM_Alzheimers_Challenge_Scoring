@@ -89,6 +89,8 @@ def update_submissions_status_batch(evaluation, statuses):
                 response = syn.restPUT("/evaluation/%s/statusBatch" % evaluation.id, json.dumps(batch))
                 token = response.get('nextUploadToken', None)
                 offset += BATCH_SIZE
+            ## finished batch uploading successfully
+            break
         except SynapseHTTPError as err:
             # on 412 ConflictingUpdateException we want to retry
             if err.response.status_code == 412:
