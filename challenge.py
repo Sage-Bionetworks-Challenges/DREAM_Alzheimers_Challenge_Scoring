@@ -26,7 +26,9 @@ import uuid
 BATCH_SIZE = 100
 
 # how many times to we retry batch uploads of submission annotations
-BATCH_UPLOAD_RETRY_COUNT = 5
+BATCH_UPLOAD_RETRY_COUNT = 7
+
+ADMIN_USER_IDS = [1421212]
 
 
 syn = synapseclient.Synapse()
@@ -70,6 +72,9 @@ with open("templates/scored_email.txt") as f:
 with open("templates/scoring_error_email.txt") as f:
     scoring_error_template = f.read()
 
+with open("templates/error_notification_email.txt") as f:
+    error_notification_template = f.read()
+
 
 def update_submissions_status_batch(evaluation, statuses):
     for retry in range(BATCH_UPLOAD_RETRY_COUNT):
@@ -96,7 +101,7 @@ def update_submissions_status_batch(evaluation, statuses):
 def send_message(template, submission, status, evaluation, message):
     profile = syn.getUserProfile(submission.userId)
 
-    print "sending message to %s" % submission.userId
+    #print "sending message to %s" % submission.userId
 
     ## fill in the template
     message_body = template.format(
@@ -124,7 +129,7 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
     It may be convenient to validate submissions in one pass before scoring
     them, especially if scoring takes a long time.
     """
-    sys.stdout.write('validating: %s %s\n' % (evaluation.id, evaluation.name))
+    sys.stdout.write('\nvalidating: %s %s\n' % (evaluation.id, evaluation.name))
     sys.stdout.flush()
 
     count = 0
@@ -139,7 +144,7 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
         try:
             status, validation_message = validation_func(submission, status)
         except Exception as ex1:
-            sys.stderr.write('Error scoring submission %s %s:\n' % (submission.name, submission.id))
+            sys.stderr.write('Error validating submission %s %s:\n' % (submission.name, submission.id))
             st = StringIO()
             traceback.print_exc(file=st)
             sys.stderr.write(st.getvalue())
@@ -152,7 +157,8 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
         ## send message AFTER storing status to ensure we don't get repeat messages
         if send_messages:
             template = confirmation_template if status.status=="VALIDATED" else validation_error_template
-            print send_message(template, submission, status.status, evaluation, validation_message)
+            response = send_message(template, submission, status.status, evaluation, validation_message)
+            print "sent message: ", response
 
         print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
 
@@ -166,7 +172,7 @@ def score_submission(submission, status):
 
 def score(evaluation, scoring_func=score_submission, send_messages=False):
 
-    sys.stdout.write('scoring: %s %s\n' % (evaluation.id, evaluation.name))
+    sys.stdout.write('\nscoring: %s %s\n' % (evaluation.id, evaluation.name))
     sys.stdout.flush()
 
     ## collect statuses here for batch update
@@ -208,7 +214,8 @@ def score(evaluation, scoring_func=score_submission, send_messages=False):
     if send_messages:
         for submission, status, message in izip(submissions, statuses, messages):
             template = scored_template if status.status=="SCORED" else scoring_error_template
-            print send_message(template, submission, status.status, evaluation, message)
+            response = send_message(template, submission, status.status, evaluation, message)
+            print "sent message: ", response
 
     print "scored %d submissions." % len(submissions)
 
@@ -270,10 +277,14 @@ def command_score_challenge(args):
 
 def challenge():
 
+    print "\n" * 2, "-" * 60
+    print datetime.utcnow().isoformat()
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-u", "--user", help="UserName", default=None)
     parser.add_argument("-p", "--password", help="Password", default=None)
+    parser.add_argument("--notifications", help="Send error notifications to challenge admins", action="store_true", default=False)
 
     subparsers = parser.add_subparsers(title="subcommand")
 
@@ -306,22 +317,39 @@ def challenge():
  
     args = parser.parse_args()
 
+    ## Acquire lock, don't run two scoring scripts at once
     try:
         update_lock = lock.acquire_lock_or_fail('challenge', max_age=timedelta(hours=4))
     except lock.LockedException:
-        print u"Is benchmark_manage_update already running? Can't acquire lock."
+        print u"Is the scoring script already running? Can't acquire lock."
         # can't acquire lock, so return error code 75 which is a
         # temporary error according to /usr/include/sysexits.h
         return 75
 
     try:
-
         syn.login(email=args.user, password=args.password)
-    
         args.func(args)
+
+    except Exception as ex1:
+        sys.stderr.write('Error in scoring script:\n')
+        st = StringIO()
+        traceback.print_exc(file=st)
+        sys.stderr.write(st.getvalue())
+        sys.stderr.write('\n')
+        message = error_notification_template.format(message=st.getvalue())
+
+        if args.notifications:
+            response = syn.sendMessage(
+                userIds=ADMIN_USER_IDS,
+                messageSubject="Exception in AD Challenge scoring harness",
+                messageBody=message)
+            print "sent message: ", response
 
     finally:
         update_lock.release()
+
+    print "\ndone: ", datetime.utcnow().isoformat()
+    print "-" * 60, "\n" * 2
 
 
 if __name__ == '__main__':
