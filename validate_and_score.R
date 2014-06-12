@@ -47,12 +47,12 @@ validate_subjects_data_frame <- function(expected, df) {
                 paste(colnames(expected), collapse=","))))
     }
 
-    if (!setequal(df$Subjects, expected$Subjects)) {
+    if (!setequal(df$Subject, expected$Subject)) {
         return(list(
             valid=FALSE,
             message=sprintf("Subjects of submission were (%s)... but should be (%s)...",
-                paste(df$Subjects, collapse=","),
-                paste(expected$Subjects, collapse=","))))
+                paste(df$Subject, collapse=","),
+                paste(expected$Subject, collapse=","))))
     }
 
     return(list(valid=TRUE, message="OK"))

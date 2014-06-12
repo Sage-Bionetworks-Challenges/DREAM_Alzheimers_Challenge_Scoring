@@ -206,7 +206,6 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
 
 
 def list_submissions(evaluation, status=None, **kwargs):
-
     print '\n\nSubmissions for: %s %s' % (evaluation.id, evaluation.name)
     print '-' * 60
 

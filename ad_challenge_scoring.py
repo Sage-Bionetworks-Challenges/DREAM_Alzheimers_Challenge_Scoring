@@ -27,13 +27,13 @@ challenge_evaluations = [
     # },
     {
         'id':2495614,
-        'validation_function': 'validate_q3',
+        'validation_function': 'validate_q1',
         'scoring_function': 'score_submission'
     }
 ]
 
 
-robjects.r('source("read_table.R")')
+robjects.r('source("validate_and_score.R")')
 r_validate_q1 = robjects.r['validate_q1']
 r_validate_q2 = robjects.r['validate_q2']
 r_validate_q3 = robjects.r['validate_q3']
