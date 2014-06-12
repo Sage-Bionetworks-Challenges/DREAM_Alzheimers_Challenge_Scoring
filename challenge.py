@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 from itertools import izip
 from StringIO import StringIO
 
+from ad_challenge_scoring import *
+
 import lock
 import argparse
 import json
@@ -34,29 +36,8 @@ ADMIN_USER_IDS = [1421212]
 syn = synapseclient.Synapse()
 
 
-## Evaluation queues
-# evaluation_queues = [
-#     {
-#         'id':2480744,
-#         'scoring_function': 'score_q1a'
-#     }, {
-#         'id':2480746,
-#         'scoring_function': 'score_q1b'
-#     }, {
-#         'id':2480748,
-#         'scoring_function': 'score_q2'
-#     }, {
-#         'id':2480750,
-#         'scoring_function': 'score_q3'
-#     }
-# ]
-
-evaluation_queues = [
-    {
-        'id':2495614,
-        'scoring_function': 'score_submission'
-    }
-]
+challenge_evaluations_map = {ev['id']:ev for ev in challenge_evaluations}
+print challenge_evaluations_map
 
 
 ## read in email templates
@@ -126,7 +107,7 @@ def validate_submission(submission, status):
     return status, "OK"
 
 
-def validate(evaluation, validation_func=validate_submission, send_messages=False):
+def validate(evaluation, validation_func=validate_submission, send_messages=False, dry_run=False):
     """
     It may be convenient to validate submissions in one pass before scoring
     them, especially if scoring takes a long time.
@@ -154,7 +135,8 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
             status.status = "INVALID"
             validation_message = st.getvalue()
 
-        syn.store(status)
+        if not dry_run:
+            syn.store(status)
 
         ## send message AFTER storing status to ensure we don't get repeat messages
         if send_messages:
@@ -172,7 +154,7 @@ def score_submission(submission, status):
     return status, "OK"
 
 
-def score(evaluation, scoring_func=score_submission, send_messages=False):
+def score(evaluation, scoring_func=score_submission, send_messages=False, dry_run=False):
 
     sys.stdout.write('\nscoring: %s %s\n' % (evaluation.id, evaluation.name))
     sys.stdout.flush()
@@ -211,7 +193,8 @@ def score(evaluation, scoring_func=score_submission, send_messages=False):
     ## Update statuses in batch. This can be much faster than individual updates,
     ## especially in rank based scoring methods which recalculate scores for all
     ## submissions each time a new submission is received.
-    update_submissions_status_batch(evaluation, statuses)
+    if not dry_run:
+        update_submissions_status_batch(evaluation, statuses)
 
     if send_messages:
         for submission, status, message in izip(submissions, statuses, messages):
@@ -238,12 +221,16 @@ def command_list(args):
 
 def command_validate(args):
     validate(evaluation=syn.getEvaluation(args.evaluation),
-             send_messages=args.send_messages)
+             validation_func=globals()[challenge_evaluations_map[int(args.evaluation)]['validation_function']],
+             send_messages=args.send_messages,
+             dry_run=args.dry_run)
 
 
 def command_score(args):
     score(evaluation=syn.getEvaluation(args.evaluation),
-             send_messages=args.send_messages)
+          scoring_func=globals()[challenge_evaluations_map[int(args.evaluation)]['scoring_function']],
+          send_messages=args.send_messages,
+          dry_run=args.dry_run)
 
 
 def command_check_status(args):
@@ -261,20 +248,23 @@ def command_check_status(args):
 def command_reset(args):
     status = syn.getSubmissionStatus(args.submission)
     status.status = 'RECEIVED'
-    print syn.store(status)
+    if not args.dry_run:
+        print syn.store(status)
 
 
 def command_score_challenge(args):
-    for evaluation_queue in evaluation_queues:
-        evaluation = syn.getEvaluation(evaluation_queue['id'])
+    for challenge_evaluation in challenge_evaluations:
+        evaluation = syn.getEvaluation(challenge_evaluation['id'])
 
-        validate(evaluation=evaluation, send_messages=args.send_messages)
+        validation_function = globals()[challenge_evaluation['validation_function']]
+        validate(evaluation, validation_function,
+            send_messages=args.send_messages,
+            dry_run=args.dry_run)
 
-        if evaluation_queue['scoring_function'] in globals():
-            scoring_function = globals()[evaluation_queue['scoring_function']]
-            score(evaluation, scoring_function, send_messages=args.send_messages)
-        else:
-            sys.stderr.write("Can't find scoring function \"%s\" for evaluation %s \"%s\"" % (evaluation_queue['scoring_function'], evaluation.id, evaluation.name))
+        scoring_function = globals()[challenge_evaluation['scoring_function']]
+        score(evaluation, scoring_function,
+            send_messages=args.send_messages,
+            dry_run=args.dry_run)
 
 
 def challenge():
@@ -287,6 +277,7 @@ def challenge():
     parser.add_argument("-u", "--user", help="UserName", default=None)
     parser.add_argument("-p", "--password", help="Password", default=None)
     parser.add_argument("--notifications", help="Send error notifications to challenge admins", action="store_true", default=False)
+    parser.add_argument("--dry-run", help="Perform the requested command without updating anything in Synapse", action="store_true", default=False)
 
     subparsers = parser.add_subparsers(title="subcommand")
 

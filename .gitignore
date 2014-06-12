@@ -8,4 +8,4 @@
 .Rdata
 
 # Python compiled files
-.pyc
+*.pyc
