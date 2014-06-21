@@ -1,11 +1,14 @@
 ##
 ##  Validate and score AD Challenge submissions
 ############################################################
+suppressMessages(require(pROC))
 
-DATA_DIR = "test_data"
+DATA_DIR = "data/scoring"
+
+## cache the answers so we don't keep reading them
 EXPECTED_FORMAT_FILES = list()
 
-
+## read either a csv or tab delimited file and return a data frame
 read_delim_or_csv <- function(filename) {
     if (grepl('.csv$', filename)) {
         read.csv(filename, stringsAsFactors=FALSE)
@@ -14,6 +17,7 @@ read_delim_or_csv <- function(filename) {
     }
 }
 
+## get the test data from cache or read from disk
 get_expected_format <- function(filename) {
     if (!(filename %in% names(EXPECTED_FORMAT_FILES))) {
         expected <- read_delim_or_csv(file.path(DATA_DIR, filename))
@@ -21,6 +25,7 @@ get_expected_format <- function(filename) {
     }
     return(EXPECTED_FORMAT_FILES[[filename]])
 }
+
 
 
 ## parameters:
@@ -31,28 +36,33 @@ get_expected_format <- function(filename) {
 ##      valid: TRUE / FALSE
 ##    message: a string
 validate_subjects_data_frame <- function(expected, df) {
-    if (!all(dim(expected)==dim(df))) {
-        return(list(
-            valid=FALSE,
-            message=sprintf("Dimensions of submission (%s) are not as expected (%s).", 
-                paste(dim(df), collapse=','),
-                paste(dim(expected), collapse=','))))
-    }
+    if (any (is.na(df))) stop ("Data format is invalid: all subjects must be predicted")
+
+    ## Either exceptions or returning a list works, not
+    ## sure which is better, yet.
 
     if (!all(colnames(expected)==colnames(df))) {
         return(list(
             valid=FALSE,
             message=sprintf("Column names of submission were (%s) but should be (%s).",
-                paste(colnames(df), collapse=","),
-                paste(colnames(expected), collapse=","))))
+                paste(colnames(df), collapse=", "),
+                paste(colnames(expected), collapse=", "))))
+    }
+
+    if (!all(dim(expected)==dim(df))) {
+        return(list(
+            valid=FALSE,
+            message=sprintf("Dimensions of submission (%s) are not as expected (%s).", 
+                paste(dim(df), collapse=', '),
+                paste(dim(expected), collapse=', '))))
     }
 
     if (!setequal(df$Subject, expected$Subject)) {
         return(list(
             valid=FALSE,
-            message=sprintf("Subjects of submission were (%s)... but should be (%s)...",
-                paste(df$Subject, collapse=","),
-                paste(expected$Subject, collapse=","))))
+            message=sprintf("Subjects of submission were (%s)... but should look more like (%s)...",
+                paste(head(setdiff(df$Subject, expected$Subject)), collapse=", "),
+                paste(head(expected$Subject), collapse=", "))))
     }
 
     return(list(valid=TRUE, message="OK"))
@@ -61,6 +71,7 @@ validate_subjects_data_frame <- function(expected, df) {
 validate_q1 <- function(filename) {
     df = read_delim_or_csv(filename)
     result = validate_subjects_data_frame(get_expected_format("q1.txt"), df)
+    return(result)
 }
 
 validate_q2 <- function(filename) {
@@ -87,5 +98,62 @@ validate_q3 <- function(filename) {
     }
 
     return(result)
+}
+
+
+
+# Question 1 - Predict MMSE at 24 months ----------------------------------
+
+Q1_score = function (predicted, observed) {
+  # predicted: a data.frame with two columns, ROSMAP ID and MMSE at 24 month predictions
+  # observed: a data.frame with ROSMAP ID (rosmap.id) and actual MMSE at 24 month (mmse.24)
+
+  # combine data
+  combined.df <- merge (predicted, observed, by='Subject')
+
+  # calculate correlation
+  q1.corr <- with (combined.df, cor(MMSE_24, MMSEm24))
+  if (is.na (q1.corr)) stop ("Unable to match subject identifiers")
+
+  list(correlation=q1.corr)
+}
+
+
+
+# Question 2 - Discordance ------------------------------------------------
+
+Q2_score = function (predicted, observed) {
+  # predicted should be a data.frame with ROSMAP ID and discordance probability predictions
+  # observed is a data.frame for testing with ROSMAP ID (rosmap.id) and discordance indicator (disc.ind)
+
+  # combine data
+  combined.df <- merge (predicted, observed, by='Subject')
+
+  # calculate metrics
+  # Brier's score
+  q2.brier <- with (combined.df, mean ((Confidence - actual_discordance)^2))
+  if (is.na (q2.brier)) stop ("Unable to match subject identifiers")
+  # AUC and CI
+  q2.auc <- with (combined.df, as.numeric (roc(actual_discordance ~ Confidence)$auc))#, ci = TRUE))
+  if (is.na (q2.auc)) stop ("Unable to match subject identifiers")
+  ## Somer's D
+  q2.s <- 2*(q2.auc - 0.5)
+
+  list(brier=q2.brier, auc=q2.auc, somer=q2.s)
+}
+
+
+score_q1 <- function(filename) {
+    df = read_delim_or_csv(filename)
+    expected = get_expected_format("q1.rosmap.csv")
+    df = df[match(expected$Subject, df$Subject),]
+    Q1_score(df, expected)
+}
+
+score_q2 <- function(filename) {
+    df = read_delim_or_csv(filename)
+    expected = get_expected_format("q2.observed.txt")
+    df = df[match(expected$Subject, df$Subject),]
+    Q2_score(df, expected)
 }
 

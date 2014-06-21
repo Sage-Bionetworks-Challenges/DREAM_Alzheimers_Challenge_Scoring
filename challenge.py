@@ -16,6 +16,7 @@ import lock
 import argparse
 import json
 import math
+import os
 import random
 import sys
 import time
@@ -35,9 +36,6 @@ ADMIN_USER_IDS = [1421212]
 
 syn = synapseclient.Synapse()
 
-
-challenge_evaluations_map = {ev['id']:ev for ev in challenge_evaluations}
-print challenge_evaluations_map
 
 
 ## read in email templates
@@ -268,46 +266,44 @@ def command_score_challenge(args):
 
 def challenge():
 
-    print "\n" * 2, "-" * 60
-    print datetime.utcnow().isoformat()
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-u", "--user", help="UserName", default=None)
     parser.add_argument("-p", "--password", help="Password", default=None)
     parser.add_argument("--notifications", help="Send error notifications to challenge admins", action="store_true", default=False)
+    parser.add_argument("--send-messages", action="store_true", default=False)
     parser.add_argument("--dry-run", help="Perform the requested command without updating anything in Synapse", action="store_true", default=False)
 
     subparsers = parser.add_subparsers(title="subcommand")
 
-    parser_list = subparsers.add_parser('list')
+    parser_list = subparsers.add_parser('list', help="List submissions to an evaluation")
     parser_list.add_argument("evaluation", metavar="EVALUATION-ID", default=None)
     parser_list.add_argument("-s", "--status", default=None)
     parser_list.set_defaults(func=command_list)
 
-    parser_validate = subparsers.add_parser('validate')
+    parser_validate = subparsers.add_parser('validate', help="Validate all RECEIVED submissions to an evaluation")
     parser_validate.add_argument("evaluation", metavar="EVALUATION-ID", default=None)
-    parser_validate.add_argument("--send-messages", action="store_true", default=False)
     parser_validate.set_defaults(func=command_validate)
 
-    parser_score = subparsers.add_parser('score')
+    parser_score = subparsers.add_parser('score', help="Score all VALIDATED submissions to an evaluation")
     parser_score.add_argument("evaluation", metavar="EVALUATION-ID", default=None)
-    parser_score.add_argument("--send-messages", action="store_true", default=False)
     parser_score.set_defaults(func=command_score)
 
-    parser_status = subparsers.add_parser('status')
+    parser_status = subparsers.add_parser('status', help="Check the status of a submission")
     parser_status.add_argument("submission")
     parser_status.set_defaults(func=command_check_status)
 
-    parser_reset = subparsers.add_parser('reset')
+    parser_reset = subparsers.add_parser('reset', help="Reset a submission to RECEIVED for re-scoring")
     parser_reset.add_argument("submission")
     parser_reset.set_defaults(func=command_reset)
 
-    parser_score_challenge = subparsers.add_parser('score-challenge')
-    parser_score_challenge.add_argument("--send-messages", action="store_true", default=False)
+    parser_score_challenge = subparsers.add_parser('score-challenge', help="Validate and score submissions to all evaluations in a challenge")
     parser_score_challenge.set_defaults(func=command_score_challenge)
  
     args = parser.parse_args()
+
+    print "\n" * 2, "-" * 60
+    print datetime.utcnow().isoformat()
 
     ## Acquire lock, don't run two scoring scripts at once
     try:
@@ -319,6 +315,10 @@ def challenge():
         return 75
 
     try:
+        if not args.user:
+            args.user = os.environ.get('SYNAPSE_USER', None)
+        if not args.password:
+            args.password = os.environ.get('SYNAPSE_PASSWORD', None)
         syn.login(email=args.user, password=args.password)
         args.func(args)
 
