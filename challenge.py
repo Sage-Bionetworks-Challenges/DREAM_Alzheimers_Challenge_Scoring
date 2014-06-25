@@ -33,6 +33,8 @@ BATCH_UPLOAD_RETRY_COUNT = 7
 
 ADMIN_USER_IDS = [1421212]
 
+QUOTA = 100
+
 
 syn = synapseclient.Synapse()
 
@@ -113,25 +115,38 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
     sys.stdout.write('\nvalidating: %s %s\n' % (evaluation.id, evaluation.name))
     sys.stdout.flush()
 
+    submission_counts_by_user = count_submissions_by_user(evaluation, status='SCORED')
+
     count = 0
 
     for submission, status in syn.getSubmissionBundles(evaluation, status='RECEIVED'):
 
-        ## refetch the submission so that we get the file path
-        ## to be later replaced by a "downloadFiles" flag on getSubmissionBundles
-        submission = syn.getSubmission(submission)
         count += 1
 
-        try:
-            status, validation_message = validation_func(submission, status)
-        except Exception as ex1:
-            sys.stderr.write('Error validating submission %s %s:\n' % (submission.name, submission.id))
-            st = StringIO()
-            traceback.print_exc(file=st)
-            sys.stderr.write(st.getvalue())
-            sys.stderr.write('\n')
+        if submission_counts_by_user.get(submission.userId, 0) >= QUOTA:
             status.status = "INVALID"
-            validation_message = st.getvalue()
+            validation_message = "You have reached the submission quota. You have submitted %d entries out of a maximum of %d allowed." % (submission_counts_by_user.get(submission.userId, 0), QUOTA)
+
+        else:
+            ## keep track of user's submission counts as we go
+            submission_counts_by_user.setdefault(submission.userId, 0)
+            submission_counts_by_user[submission.userId] += 1
+
+            ## refetch the submission so that we get the file path
+            ## to be later replaced by a "downloadFiles" flag on getSubmissionBundles
+            submission = syn.getSubmission(submission)
+
+            try:
+                status, validation_message = validation_func(submission, status)
+                validation_message += "\nYou have submitted %d entries out of a maximum of %d allowed." % (submission_counts_by_user[submission.userId], QUOTA)
+            except Exception as ex1:
+                sys.stderr.write('Error validating submission %s %s:\n' % (submission.name, submission.id))
+                st = StringIO()
+                traceback.print_exc(file=st)
+                sys.stderr.write(st.getvalue())
+                sys.stderr.write('\n')
+                status.status = "INVALID"
+                validation_message = st.getvalue()
 
         if not dry_run:
             syn.store(status)
@@ -162,6 +177,8 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
     submissions = []
     messages = []
 
+    submission_counts_by_user = count_submissions_by_user(evaluation, status='SCORED')
+
     for submission, status in syn.getSubmissionBundles(evaluation, status='VALIDATED'):
 
         ## refetch the submission so that we get the file path
@@ -170,6 +187,12 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
 
         try:
             status, msg = scoring_func(submission, status)
+
+            msg += "\nYou have submitted %d entries out of a maximum of %d allowed." % (submission_counts_by_user.get(submission.userId, 0), QUOTA)
+            ## keep track of user's submission counts as we go
+            submission_counts_by_user.setdefault(submission.userId, 0)
+            submission_counts_by_user[submission.userId] += 1
+
             messages.append(msg)
         except Exception as ex1:
             sys.stderr.write('Error scoring submission %s %s:\n' % (submission.name, submission.id))
@@ -209,6 +232,14 @@ def list_submissions(evaluation, status=None, **kwargs):
 
     for submission, status in syn.getSubmissionBundles(evaluation, status=status):
         print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
+
+
+def count_submissions_by_user(evaluation, status=None):
+    submission_counts_by_user = {}
+    for submission, status in syn.getSubmissionBundles(evaluation, status=status):
+        submission_counts_by_user.setdefault(submission.userId, 0)
+        submission_counts_by_user[submission.userId] += 1
+    return submission_counts_by_user
 
 
 def command_list(args):
