@@ -109,13 +109,16 @@ Q1_score = function (predicted, observed) {
   # observed: a data.frame with ROSMAP ID (rosmap.id) and actual MMSE at 24 month (mmse.24)
 
   # combine data
-  combined.df <- merge (predicted, observed, by='Subject')
+  combined.df <- merge (predicted, observed, by='projid')
 
   # calculate correlation
-  q1.corr <- with (combined.df, cor(MMSE_24, MMSEm24))
-  if (is.na (q1.corr)) stop ("Unable to match subject identifiers")
+  corr_clin <- with (combined.df, cor(delta_MMSE_24_clin, MMSEm24-MMSEbl))
+  if (is.na (corr_clin)) stop ("Unable to match subject identifiers")
 
-  list(correlation=q1.corr)
+  corr_clin_gen <- with (combined.df, cor(delta_MMSE_24_clin_gen, MMSEm24-MMSEbl))
+  if (is.na (corr_clin_gen)) stop ("Unable to match subject identifiers")
+
+  list(correlation_clin=corr_clin, correlation_clin_gen=corr_clin_gen)
 }
 
 
@@ -127,7 +130,7 @@ Q2_score = function (predicted, observed) {
   # observed is a data.frame for testing with ROSMAP ID (rosmap.id) and discordance indicator (disc.ind)
 
   # combine data
-  combined.df <- merge (predicted, observed, by='Subject')
+  combined.df <- merge (predicted, observed, by='projid')
 
   # calculate metrics
   # Brier's score

@@ -17,11 +17,11 @@ challenge_evaluations = [
         'validation_function': 'validate_q1',
         'scoring_function': 'score_q1'
     },
-    {
-        'id':2480746,
-        'validation_function': 'validate_q1',
-        'scoring_function': 'score_q1'
-    },
+    # {
+    #     'id':2480746,
+    #     'validation_function': 'validate_q1',
+    #     'scoring_function': 'score_q1'
+    # },
     {
         'id':2480748,
         'validation_function': 'validate_q2',
@@ -88,7 +88,8 @@ def score_q1(submission, status):
     print result
     status.status = "SCORED"
     annotations = {}
-    annotations['correlation'] = result['correlation']
+    annotations['correlation_clin'] = result['correlation_clin']
+    annotations['correlation_clin_gen'] = result['correlation_clin_gen']
     status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
     return status, "Submission scored.\n\n    Correlation = %f." % annotations['correlation']
 
