@@ -29,54 +29,72 @@ get_expected_format <- function(filename) {
 
 
 ## parameters:
-##   expected: a data.frame with the expected columns and Subject identifiers
+##   expected: a data.frame with the expected dimensions and column identifiers
 ##         df: the data.frame to be validated
 ##
 ## returns a list of two elements:
 ##      valid: TRUE / FALSE
 ##    message: a string
-validate_subjects_data_frame <- function(expected, df) {
+validate_data_frame <- function(expected, df) {
     if (any (is.na(df))) stop ("Data format is invalid: all subjects must be predicted")
 
     ## Either exceptions or returning a list works, not
     ## sure which is better, yet.
 
     if (!all(colnames(expected)==colnames(df))) {
-        return(list(
-            valid=FALSE,
-            message=sprintf("Column names of submission were (%s) but should be (%s).",
-                paste(colnames(df), collapse=", "),
-                paste(colnames(expected), collapse=", "))))
+        stop(sprintf(
+            "Column names of submission were (%s) but should be (%s).",
+            paste(colnames(df), collapse=", "),
+            paste(colnames(expected), collapse=", ")))
     }
 
     if (!all(dim(expected)==dim(df))) {
-        return(list(
-            valid=FALSE,
-            message=sprintf("Dimensions of submission (%s) are not as expected (%s).", 
-                paste(dim(df), collapse=', '),
-                paste(dim(expected), collapse=', '))))
-    }
-
-    if (!setequal(df$Subject, expected$Subject)) {
-        return(list(
-            valid=FALSE,
-            message=sprintf("Subjects of submission were (%s)... but should look more like (%s)...",
-                paste(head(setdiff(df$Subject, expected$Subject)), collapse=", "),
-                paste(head(expected$Subject), collapse=", "))))
+        stop(sprintf(
+            "Dimensions of submission (%s) are not as expected (%s).",
+            paste(dim(df), collapse=', '),
+            paste(dim(expected), collapse=', ')))
     }
 
     return(list(valid=TRUE, message="OK"))
 }
 
+validate_projids <- function(expected, df) {
+    if (!setequal(df$projid, expected$projid)) {
+        return(list(
+            valid=FALSE,
+            message=sprintf("The projid column contained unrecognized identifiers: \"%s\". The expected identifiers look like these: \"%s\".",
+                paste(head(setdiff(df$projid, expected$projid)), collapse=", "),
+                paste(head(expected$projid), collapse=", "))))
+    }
+
+    return(list(valid=TRUE, message="OK"))
+}
+
+
 validate_q1 <- function(filename) {
     df = read_delim_or_csv(filename)
-    result = validate_subjects_data_frame(get_expected_format("q1.txt"), df)
+    expected = get_expected_format("q1.txt")
+    result = validate_data_frame(expected, df)
+
+    if (!result$valid) {
+        return(result)
+    }
+
+    result = validate_projids(expected, df)
+
     return(result)
 }
 
 validate_q2 <- function(filename) {
     df = read_delim_or_csv(filename)
-    result = validate_subjects_data_frame(get_expected_format("q2.txt"), df)
+    expected = get_expected_format("q2.txt")
+    result = validate_data_frame(expected, df)
+
+    if (!result$valid) {
+        return(result)
+    }
+
+    result = validate_projids(expected, df)
 }
 
 validate_q3 <- function(filename) {
@@ -105,20 +123,20 @@ validate_q3 <- function(filename) {
 # Question 1 - Predict MMSE at 24 months ----------------------------------
 
 Q1_score = function (predicted, observed) {
-  # predicted: a data.frame with two columns, ROSMAP ID and MMSE at 24 month predictions
-  # observed: a data.frame with ROSMAP ID (rosmap.id) and actual MMSE at 24 month (mmse.24)
+    # predicted: a data.frame with two columns, ROSMAP ID and MMSE at 24 month predictions
+    # observed: a data.frame with ROSMAP ID (rosmap.id) and actual MMSE at 24 month (mmse.24)
 
-  # combine data
-  combined.df <- merge (predicted, observed, by='projid')
+    # combine data
+    combined.df <- merge (predicted, observed, by='projid')
 
-  # calculate correlation
-  corr_clin <- with (combined.df, cor(delta_MMSE_24_clin, MMSEm24-MMSEbl))
-  if (is.na (corr_clin)) stop ("Unable to match subject identifiers")
+    # calculate correlation
+    corr_clin <- with (combined.df, cor(delta_MMSE_24_clin, MMSEm24-MMSEbl))
+    if (is.na (corr_clin)) stop ("Unable to match subject identifiers")
 
-  corr_clin_gen <- with (combined.df, cor(delta_MMSE_24_clin_gen, MMSEm24-MMSEbl))
-  if (is.na (corr_clin_gen)) stop ("Unable to match subject identifiers")
+    corr_clin_gen <- with (combined.df, cor(delta_MMSE_24_clin_gen, MMSEm24-MMSEbl))
+    if (is.na (corr_clin_gen)) stop ("Unable to match subject identifiers")
 
-  list(correlation_clin=corr_clin, correlation_clin_gen=corr_clin_gen)
+    list(correlation_clin=corr_clin, correlation_clin_gen=corr_clin_gen)
 }
 
 
@@ -126,23 +144,23 @@ Q1_score = function (predicted, observed) {
 # Question 2 - Discordance ------------------------------------------------
 
 Q2_score = function (predicted, observed) {
-  # predicted should be a data.frame with ROSMAP ID and discordance probability predictions
-  # observed is a data.frame for testing with ROSMAP ID (rosmap.id) and discordance indicator (disc.ind)
+    # predicted should be a data.frame with ROSMAP ID and discordance probability predictions
+    # observed is a data.frame for testing with ROSMAP ID (rosmap.id) and discordance indicator (disc.ind)
 
-  # combine data
-  combined.df <- merge (predicted, observed, by='projid')
+    # combine data
+    combined.df <- merge (predicted, observed, by='projid')
 
-  # calculate metrics
-  # Brier's score
-  q2.brier <- with (combined.df, mean ((Confidence - actual_discordance)^2))
-  if (is.na (q2.brier)) stop ("Unable to match subject identifiers")
-  # AUC and CI
-  q2.auc <- with (combined.df, as.numeric (roc(actual_discordance ~ Confidence)$auc))#, ci = TRUE))
-  if (is.na (q2.auc)) stop ("Unable to match subject identifiers")
-  ## Somer's D
-  q2.s <- 2*(q2.auc - 0.5)
+    # calculate metrics
+    # Brier's score
+    q2.brier <- with (combined.df, mean ((Confidence - actual_discordance)^2))
+    if (is.na (q2.brier)) stop ("Unable to match subject identifiers")
+    # AUC and CI
+    q2.auc <- with (combined.df, as.numeric (roc(actual_discordance ~ Confidence)$auc))#, ci = TRUE))
+    if (is.na (q2.auc)) stop ("Unable to match subject identifiers")
+    ## Somer's D
+    q2.s <- 2*(q2.auc - 0.5)
 
-  list(brier=q2.brier, auc=q2.auc, somer=q2.s)
+    list(brier=q2.brier, auc=q2.auc, somer=q2.s)
 }
 
 

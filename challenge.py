@@ -275,7 +275,7 @@ def command_check_status(args):
 
 def command_reset(args):
     status = syn.getSubmissionStatus(args.submission)
-    status.status = 'RECEIVED'
+    status.status = args.status
     if not args.dry_run:
         print syn.store(status)
 
@@ -324,8 +324,9 @@ def challenge():
     parser_status.add_argument("submission")
     parser_status.set_defaults(func=command_check_status)
 
-    parser_reset = subparsers.add_parser('reset', help="Reset a submission to RECEIVED for re-scoring")
+    parser_reset = subparsers.add_parser('reset', help="Reset a submission to RECEIVED for re-scoring (or set to some other status)")
     parser_reset.add_argument("submission")
+    parser_reset.add_argument("-s", "--status", default='RECEIVED')
     parser_reset.set_defaults(func=command_reset)
 
     parser_score_challenge = subparsers.add_parser('score-challenge', help="Validate and score submissions to all evaluations in a challenge")
