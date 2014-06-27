@@ -1,4 +1,4 @@
-Subject	MMSE_24	Diagnosis
+ID	MMSE Score	Diagnosis
 1001	13	AD
 1002	27	Normal
 1003	29	Normal

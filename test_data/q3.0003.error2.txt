@@ -1,4 +1,4 @@
-Subject	MMSE_24	Diagnosis
+ID	MMSE Score	Diagnosis
 1001	17	AD
 1002	25	MCI
 1003	30	What's this doing here?
