@@ -120,7 +120,7 @@ validate_q3 <- function(filename) {
 
 
 
-# Question 1 - Predict MMSE at 24 months ----------------------------------
+# Question 1 - Predict change in MMSE at 24 months ------------------------
 
 Q1_score = function (predicted, observed) {
     # predicted: a data.frame with two columns, ROSMAP ID and MMSE at 24 month predictions
@@ -130,10 +130,10 @@ Q1_score = function (predicted, observed) {
     combined.df <- merge (predicted, observed, by='projid')
 
     # calculate correlation
-    corr_clin <- with (combined.df, cor(delta_MMSE_24_clin, MMSEm24-MMSEbl))
+    corr_clin <- with (combined.df, cor(delta_MMSE_clin, MMSEm24-MMSEbl))
     if (is.na (corr_clin)) stop ("Unable to match subject identifiers")
 
-    corr_clin_gen <- with (combined.df, cor(delta_MMSE_24_clin_gen, MMSEm24-MMSEbl))
+    corr_clin_gen <- with (combined.df, cor(delta_MMSE_clin_gen, MMSEm24-MMSEbl))
     if (is.na (corr_clin_gen)) stop ("Unable to match subject identifiers")
 
     list(correlation_clin=corr_clin, correlation_clin_gen=corr_clin_gen)
