@@ -99,7 +99,7 @@ validate_q2 <- function(filename) {
 
 validate_q3 <- function(filename) {
     df = read_delim_or_csv(filename)
-    result = validate_subjects_data_frame(get_expected_format("q3.txt"), df)
+    result = validate_data_frame(get_expected_format("q3.txt"), df)
 
     if (!result$valid) {
         return(result)
@@ -167,14 +167,14 @@ Q2_score = function (predicted, observed) {
 score_q1 <- function(filename) {
     df = read_delim_or_csv(filename)
     expected = get_expected_format("q1.rosmap.csv")
-    df = df[match(expected$Subject, df$Subject),]
+    df = df[match(expected$projid, df$projid),]
     Q1_score(df, expected)
 }
 
 score_q2 <- function(filename) {
     df = read_delim_or_csv(filename)
     expected = get_expected_format("q2.observed.txt")
-    df = df[match(expected$Subject, df$Subject),]
+    df = df[match(expected$projid, df$projid),]
     Q2_score(df, expected)
 }
 

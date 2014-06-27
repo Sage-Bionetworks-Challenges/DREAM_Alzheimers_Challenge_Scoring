@@ -91,7 +91,7 @@ def score_q1(submission, status):
     annotations['correlation_clin'] = result['correlation_clin']
     annotations['correlation_clin_gen'] = result['correlation_clin_gen']
     status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
-    return status, "Submission scored.\n\n    Correlation = %f." % annotations['correlation']
+    return status, "Submission scored.\n\n    Correlations = %f, %f." % (annotations['correlation_clin'], annotations['correlation_clin_gen'])
 
 
 def score_q2(submission, status):
