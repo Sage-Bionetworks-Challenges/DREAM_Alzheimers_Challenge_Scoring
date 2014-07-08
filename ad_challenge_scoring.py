@@ -87,21 +87,29 @@ def score_q1(submission, status):
     result = as_dict(r_score_q1(submission.filePath))
     print result
     status.status = "SCORED"
-    annotations = {}
-    annotations['correlation_clin'] = result['correlation_clin']
-    annotations['correlation_clin_gen'] = result['correlation_clin_gen']
+
+    keys = ['correlation_pearson_clin',
+            'correlation_pearson_clin_gen',
+            'correlation_spearman_clin',
+            'correlation_spearman_clin_gen']
+    annotations = {key:result[key] for key in keys}
+
     status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
-    return status, "Submission scored.\n\n    Correlations = %f, %f." % (annotations['correlation_clin'], annotations['correlation_clin_gen'])
+    return status, ("Submission scored.\n\n    Correlations are:\n" +
+        "    pearson, clinical:          {correlation_pearson_clin}\n" +
+        "    pearson, clinical+genetic:  {correlation_pearson_clin_gen}\n" +
+        "    spearman, clinical:         {correlation_spearman_clin}\n" +
+        "    spearman, clinical+genetic: {correlation_spearman_clin_gen}\n").format(**annotations)
 
 
 def score_q2(submission, status):
     result = as_dict(r_score_q2(submission.filePath))
     print result
     status.status = "SCORED"
-    annotations = {}
-    annotations['brier'] = result['brier']
-    annotations['auc'] = result['auc']
-    annotations['somer'] = result['somer']
+
+    keys = ['brier', 'auc', 'somer']
+    annotations = {key:result[key] for key in keys}
+
     status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
     return status, ("Submission scored.\n\n" +
         "    Brier's score = {brier}\n" +

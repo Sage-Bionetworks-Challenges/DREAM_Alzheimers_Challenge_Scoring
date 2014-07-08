@@ -112,7 +112,8 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
     It may be convenient to validate submissions in one pass before scoring
     them, especially if scoring takes a long time.
     """
-    sys.stdout.write('\nvalidating: %s %s\n' % (evaluation.id, evaluation.name))
+    sys.stdout.write('\n\n' + '-' * 60 + '\n')
+    sys.stdout.write('validating evaluation: %s %s\n' % (evaluation.id, evaluation.name))
     sys.stdout.flush()
 
     submission_counts_by_user = count_submissions_by_user(evaluation, status='SCORED')
@@ -120,6 +121,9 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
     count = 0
 
     for submission, status in syn.getSubmissionBundles(evaluation, status='RECEIVED'):
+
+        sys.stdout.write('\nvalidating submission: %s %s\n' % (submission.id, submission.name))
+        sys.stdout.flush()
 
         count += 1
 
@@ -138,7 +142,6 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
 
             try:
                 status, validation_message = validation_func(submission, status)
-                validation_message += "\nYou have submitted %d entries out of a maximum of %d allowed." % (submission_counts_by_user[submission.userId], QUOTA)
             except Exception as ex1:
                 sys.stderr.write('Error validating submission %s %s:\n' % (submission.name, submission.id))
                 st = StringIO()
@@ -159,7 +162,8 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
 
         print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
 
-    print "validated %d submissions." % count
+    print "\nvalidated %d submissions." % count
+    print '-' * 60 + '\n'
 
 
 def score_submission(submission, status):
@@ -169,7 +173,8 @@ def score_submission(submission, status):
 
 def score(evaluation, scoring_func=score_submission, send_messages=False, dry_run=False):
 
-    sys.stdout.write('\nscoring: %s %s\n' % (evaluation.id, evaluation.name))
+    sys.stdout.write('\n\n' + '-' * 60 + '\n')
+    sys.stdout.write('scoring evaluation: %s %s\n' % (evaluation.id, evaluation.name))
     sys.stdout.flush()
 
     ## collect statuses here for batch update
@@ -181,6 +186,9 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
 
     for submission, status in syn.getSubmissionBundles(evaluation, status='VALIDATED'):
 
+        sys.stdout.write('\nscoring submission: %s %s\n' % (submission.id, submission.name))
+        sys.stdout.flush()
+
         ## refetch the submission so that we get the file path
         ## to be later replaced by a "downloadFiles" flag on getSubmissionBundles
         submission = syn.getSubmission(submission)
@@ -188,11 +196,16 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
         try:
             status, msg = scoring_func(submission, status)
 
-            msg += "\nYou have submitted %d entries out of a maximum of %d allowed." % (submission_counts_by_user.get(submission.userId, 0), QUOTA)
             ## keep track of user's submission counts as we go
             submission_counts_by_user.setdefault(submission.userId, 0)
             submission_counts_by_user[submission.userId] += 1
 
+            annotations = synapseclient.annotations.from_synapse_annotations(status.annotations)
+            annotations['submission_number'] = submission_counts_by_user[submission.userId]
+            status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
+
+            msg += "\nThis is your %s submission out of a maximum of %d allowed." % (
+                    to_ordinal(submission_counts_by_user[submission.userId]), QUOTA)
             messages.append(msg)
         except Exception as ex1:
             sys.stderr.write('Error scoring submission %s %s:\n' % (submission.name, submission.id))
@@ -223,7 +236,8 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
             response = send_message(template, submission, status.status, evaluation, message)
             print "sent message: ", response
 
-    print "scored %d submissions." % len(submissions)
+    print "\nscored %d submissions." % len(submissions)
+    print '-' * 60 + '\n'
 
 
 def list_submissions(evaluation, status=None, **kwargs):
@@ -240,6 +254,20 @@ def count_submissions_by_user(evaluation, status=None):
         submission_counts_by_user.setdefault(submission.userId, 0)
         submission_counts_by_user[submission.userId] += 1
     return submission_counts_by_user
+
+
+def to_ordinal(i):
+    ## teens are all 1Xth
+    if i % 100 >= 11 and i % 100 < 20:
+        return "%dth" % i
+    elif i % 10 == 1:
+        return "%dst" % i
+    elif i % 10 == 2:
+        return "%dnd" % i
+    elif i % 10 == 3:
+        return "%drd" % i
+    else:
+        return "%dth" % i
 
 
 def command_list(args):

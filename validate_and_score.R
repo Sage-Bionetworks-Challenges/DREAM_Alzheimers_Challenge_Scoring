@@ -75,12 +75,23 @@ validate_q1 <- function(filename) {
     df = read_delim_or_csv(filename)
     expected = get_expected_format("q1.txt")
     result = validate_data_frame(expected, df)
-
     if (!result$valid) {
         return(result)
     }
 
     result = validate_projids(expected, df)
+    if (!result$valid) {
+        return(result)
+    }
+
+    ## check for zero variance predictions
+    result$valid = var(df$delta_MMSE_clin) > 0 && var(df$delta_MMSE_clin_gen) > 0
+    if (!result$valid) {
+        result$message = paste(
+            "Your prediction has zero variance, which means your submission can't be scored.",
+            "Submissions are scored by correlation with the observed values for change in MMSE, but correlation is",
+            "undefined when either of the correlates has zero variance.")
+    }
 
     return(result)
 }
@@ -129,14 +140,23 @@ Q1_score = function (predicted, observed) {
     # combine data
     combined.df <- merge (predicted, observed, by='projid')
 
-    # calculate correlation
-    corr_clin <- with (combined.df, cor(delta_MMSE_clin, MMSEm24-MMSEbl))
-    if (is.na (corr_clin)) stop ("Unable to match subject identifiers")
+    # calculate correlations
+    corr_pearson_clin <- with (combined.df, cor(delta_MMSE_clin, MMSEm24-MMSEbl))
+    if (is.na (corr_pearson_clin)) stop ("Unable to match subject identifiers")
 
-    corr_clin_gen <- with (combined.df, cor(delta_MMSE_clin_gen, MMSEm24-MMSEbl))
-    if (is.na (corr_clin_gen)) stop ("Unable to match subject identifiers")
+    corr_pearson_clin_gen <- with (combined.df, cor(delta_MMSE_clin_gen, MMSEm24-MMSEbl))
+    if (is.na (corr_pearson_clin_gen)) stop ("Unable to match subject identifiers")
 
-    list(correlation_clin=corr_clin, correlation_clin_gen=corr_clin_gen)
+    corr_spearman_clin <- with (combined.df, cor(delta_MMSE_clin, MMSEm24-MMSEbl, method="spearman"))
+    if (is.na (corr_spearman_clin)) stop ("Unable to match subject identifiers")
+
+    corr_spearman_clin_gen <- with (combined.df, cor(delta_MMSE_clin_gen, MMSEm24-MMSEbl, method="spearman"))
+    if (is.na (corr_spearman_clin_gen)) stop ("Unable to match subject identifiers")
+
+    list(correlation_pearson_clin=corr_pearson_clin,
+         correlation_pearson_clin_gen=corr_pearson_clin_gen,
+         correlation_spearman_clin=corr_spearman_clin,
+         correlation_spearman_clin_gen=corr_spearman_clin_gen)
 }
 
 
