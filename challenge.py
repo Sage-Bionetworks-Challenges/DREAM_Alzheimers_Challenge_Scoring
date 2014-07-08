@@ -34,6 +34,7 @@ BATCH_UPLOAD_RETRY_COUNT = 7
 ADMIN_USER_IDS = [1421212]
 
 QUOTA = 100
+SEND_VALIDATION_SUCCESS = False
 
 
 syn = synapseclient.Synapse()
@@ -155,7 +156,7 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
             syn.store(status)
 
         ## send message AFTER storing status to ensure we don't get repeat messages
-        if send_messages:
+        if send_messages and (status.status=="INVALID" or SEND_VALIDATION_SUCCESS):
             template = confirmation_template if status.status=="VALIDATED" else validation_error_template
             response = send_message(template, submission, status.status, evaluation, validation_message)
             print "sent message: ", response
