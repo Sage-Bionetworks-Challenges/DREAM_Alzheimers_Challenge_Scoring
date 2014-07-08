@@ -23,4 +23,5 @@ q2$Discordance <- ifelse(q2$Confidence > 0.5, 1, 0)
 write.table(q2, file='q2.txt', quote=F, sep='\t', row.names=F, col.names=T)
 
 
-
+q2_observed <- read.table('data/scoring/q2.observed.txt', header=T, stringsAsFactors=F)
+q2_observed$actual_discordance_string <- ifelse(q2_observed$actual_discordance == 1, 'discordant', 'concordant')

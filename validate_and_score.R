@@ -180,7 +180,11 @@ Q2_score = function (predicted, observed) {
     ## Somer's D
     q2.s <- 2*(q2.auc - 0.5)
 
-    list(brier=q2.brier, auc=q2.auc, somer=q2.s)
+    ## Accuracy: according to the AD Challenge wiki, 1=Discordant and 0=Concordant
+    predicted_discordance <- tolower(predicted$Discordance) == "discordant"
+    q2.accuracy <- sum(predicted_discordance==observed$actual_discordance) / length(observed$actual_discordance)
+
+    list(brier=q2.brier, auc=q2.auc, somer=q2.s, accuracy=q2.accuracy)
 }
 
 
