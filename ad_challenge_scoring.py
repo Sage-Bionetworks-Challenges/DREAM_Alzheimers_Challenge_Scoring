@@ -115,7 +115,5 @@ def score_q2(submission, status):
         "    Accuracy = {accuracy}\n" +
         "    AUC = {auc}\n" +
         "    Brier's score = {brier}\n" +
-        "    Somer's D = {somer}\n" +
-        "    Balanced Accuracy = {balancedAccuracy}\n" +
-        "    Log Deviance = {logDeviance}\n").format(**annotations)
+        "    Somer's D = {somer}\n").format(**annotations)
 

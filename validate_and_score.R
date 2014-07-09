@@ -205,7 +205,7 @@ Q2_score = function (predicted, observed) {
 
     q2.logDeviance <- with(combined.df, logDeviance(Confidence,actual_discordance))
 
-    list(brier=q2.brier, auc=q2.auc, somer=q2.s, accuracy=q2.accuracy, balancedAccuracy=q2.balancedAccuracy, logDeviance=q2.logDeviance)
+    list(brier=q2.brier, auc=q2.auc, somer=q2.s, accuracy=q2.balancedAccuracy)
 }
 
 
