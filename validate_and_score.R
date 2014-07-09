@@ -196,14 +196,14 @@ Q2_score = function (predicted, observed) {
 
     q2.balancedAccuracy <- balancedAccuracy(predicted_discordance,observed$actual_discordance)
 
-    logDeviance <- function(confidence,true){
-        if((min(confidence,na.rm=T)<0)|(max(confidence>1,na.rm=T))|(sum(is.na(confidence)>0))) stop ("Undiscovered matching error: recode")
-        ld <- -2*sum(log(confidence[true==1]))
-        ld <- ld-2*sum(log(1-confidence[true==0]))
-        return(ld)
-    }
+    #logDeviance <- function(confidence,true){
+    #    if((min(confidence,na.rm=T)<0)|(max(confidence>1,na.rm=T))|(sum(is.na(confidence)>0))) stop ("Undiscovered matching error: recode")
+    #    ld <- -2*sum(log(confidence[true==1]))
+    #    ld <- ld-2*sum(log(1-confidence[true==0]))
+    #    return(ld)
+    #}
 
-    q2.logDeviance <- with(combined.df, logDeviance(Confidence,actual_discordance))
+    #q2.logDeviance <- with(combined.df, logDeviance(Confidence,actual_discordance))
 
     list(brier=q2.brier, auc=q2.auc, somer=q2.s, accuracy=q2.balancedAccuracy)
 }
