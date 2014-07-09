@@ -107,7 +107,7 @@ def score_q2(submission, status):
     print result
     status.status = "SCORED"
 
-    keys = ['brier', 'auc', 'somer', 'accuracy']
+    keys = ['brier', 'auc', 'somer', 'accuracy', 'balancedAccuracy', 'logDeviance']
     annotations = {key:result[key] for key in keys}
 
     status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
@@ -115,5 +115,7 @@ def score_q2(submission, status):
         "    Accuracy = {accuracy}\n" +
         "    AUC = {auc}\n" +
         "    Brier's score = {brier}\n" +
-        "    Somer's D = {somer}\n").format(**annotations)
+        "    Somer's D = {somer}\n" +
+        "    Balanced Accuracy = {balancedAccuracy}\n" +
+        "    Log Deviance = {logDeviance}\n").format(**annotations)
 
