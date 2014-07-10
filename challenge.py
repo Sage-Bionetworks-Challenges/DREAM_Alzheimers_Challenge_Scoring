@@ -94,7 +94,7 @@ def send_message(template, submission, status, evaluation, message):
         submission_name=submission.name,
         evaluation_id=evaluation.id,
         evaluation_name=evaluation.name,
-        team= submission.submitterAlias if submission.submitterAlias else 'unknown',
+        team=submission.get('submitterAlias', 'no team specified'),
         message=message)
 
     return syn.sendMessage(
