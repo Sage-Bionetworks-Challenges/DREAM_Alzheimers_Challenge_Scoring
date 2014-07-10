@@ -161,7 +161,7 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
             response = send_message(template, submission, status.status, evaluation, validation_message)
             print "sent message: ", response
 
-        print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
+        print submission.id, submission.name, submission.userId, status.status
 
     print "\nvalidated %d submissions." % count
     print '-' * 60 + '\n'
@@ -223,7 +223,7 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
         statuses.append(status)
         submissions.append(submission)
 
-        print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
+        print submission.id, submission.name, submission.userId, status.status
 
     ## Update statuses in batch. This can be much faster than individual updates,
     ## especially in rank based scoring methods which recalculate scores for all
@@ -246,7 +246,7 @@ def list_submissions(evaluation, status=None, **kwargs):
     print '-' * 60
 
     for submission, status in syn.getSubmissionBundles(evaluation, status=status):
-        print submission.id, submission.name, submission.submitterAlias, submission.userId, status.status
+        print submission.id, submission.name, submission.userId, status.status
 
 
 def count_submissions_by_user(evaluation, status=None):

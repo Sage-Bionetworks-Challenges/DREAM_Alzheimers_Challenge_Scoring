@@ -1,3 +1,11 @@
+## Process test data files to create submission templates
+## and scoring
+## 
+## This is scratch code to preserve the steps I took to
+## create the files used by the scoring code in
+## validate_and_score.R  -chris
+############################################################
+
 ROSMAP.MMSE <- read.csv('data/answers/ROSMAP.MMSE.csv', stringsAsFactors=FALSE)
 id.tr <- data.frame(id=ROSMAP.MMSE$id, projid=as.integer(gsub("(MAP|ROS)0*", "", ROSMAP.MMSE$id)), stringsAsFactors=F)
 
