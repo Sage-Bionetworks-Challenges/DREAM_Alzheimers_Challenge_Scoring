@@ -180,21 +180,21 @@ Q2_score = function (predicted, observed) {
     ## Somer's D
     q2.s <- 2*(q2.auc - 0.5)
 
-    #balancedAccuracy <- function(pred,true){
-    #    pred <- as.numeric(pred)
-    #    true <- as.numeric(true)
-    #    if(sum(!unique((c(pred,true)))%in%c(0,1))>0) stop ("Undiscovered matching error: recode")
-        #res <- table(pred,true)
-    #    tp <- sum((pred==1)&(true==1))
-    #    tn <- sum((pred==0)&(true==0))
-    #    return(0.5*tp/(sum(true==1))+0.5*tn/(sum(true==0)))
-    #}
+    balancedAccuracy <- function(pred,true){
+        pred <- as.numeric(pred)
+        true <- as.numeric(true)
+        if(sum(!unique((c(pred,true)))%in%c(0,1))>0) stop ("Undiscovered matching error: recode")
+        res <- table(pred,true)
+        tp <- sum((pred==1)&(true==1))
+        tn <- sum((pred==0)&(true==0))
+        return(0.5*tp/(sum(true==1))+0.5*tn/(sum(true==0)))
+    }
 
     ## Accuracy: according to the AD Challenge wiki, 1=Discordant and 0=Concordant
     predicted_discordance <- tolower(predicted$Discordance) == "discordant"
     q2.accuracy <- sum(predicted_discordance==observed$actual_discordance) / length(observed$actual_discordance)
 
-    #q2.balancedAccuracy <- balancedAccuracy(predicted_discordance,observed$actual_discordance)
+    q2.balancedAccuracy <- balancedAccuracy(predicted_discordance,observed$actual_discordance)
 
     #logDeviance <- function(confidence,true){
     #    if((min(confidence,na.rm=T)<0)|(max(confidence>1,na.rm=T))|(sum(is.na(confidence)>0))) stop ("Undiscovered matching error: recode")
@@ -205,7 +205,7 @@ Q2_score = function (predicted, observed) {
 
     #q2.logDeviance <- with(combined.df, logDeviance(Confidence,actual_discordance))
 
-    list(brier=q2.brier, auc=q2.auc, somer=q2.s, accuracy=q2.accuracy)
+    list(brier=q2.brier, auc=q2.auc, somer=q2.s, accuracy=q2.balancedAccuracy)
 }
 
 
