@@ -1,0 +1,11 @@
+Hello Challenge Admins,
+
+An exception occurred while scoring the AD Challenge:
+
+The error message was:
+
+{message}
+
+Sincerely,
+
+the scoring script

@@ -1,0 +1,11 @@
+ID	MMSE Score	Diagnosis
+1001	17	AD
+1002	25	MCI
+1003	30	What's this doing here?
+1004	29	Normal
+1005	21	MCI
+1006	14	AD
+1007	11	AD
+1008	26	MCI
+1009	25	MCI
+1010	19	MCI

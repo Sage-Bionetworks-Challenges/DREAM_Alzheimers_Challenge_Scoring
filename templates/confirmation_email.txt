@@ -1,0 +1,20 @@
+Hello {username},
+
+This is to let you know that we have received your submission to the {evaluation_name} ({evaluation_id}).
+
+submission name: {submission_name}
+submission ID: {submission_id}
+
+Scoring will be performed shortly and the results will appear on the leaderboard:
+https://www.synapse.org/#!Synapse:syn2290704/wiki/64637
+
+If you need help, please refer to the challenge instructions which can be found at:
+https://www.synapse.org/#!Synapse:syn2290704/wiki/64635
+
+...or ask questions on the forums at:
+http://support.sagebase.org/sagebase/products/sagebase_big_data_alzheimer_s_disease_dream_challenge_1
+
+
+Sincerely,
+
+the scoring script
