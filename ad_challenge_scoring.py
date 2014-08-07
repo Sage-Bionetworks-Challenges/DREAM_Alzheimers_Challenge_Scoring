@@ -12,34 +12,54 @@ import synapseclient
 
 ## Evaluation queues
 challenge_evaluations = [
+
+    ## Q1
     {
         'id':2480744,
         'validation_function': 'validate_q1',
-        'scoring_function': 'score_q1'
+        'scoring_function': 'score_q1',
+        'fields': ['correlation_pearson_clin',
+                   'correlation_pearson_clin_gen',
+                   'correlation_spearman_clin',
+                   'correlation_spearman_clin_gen']
     },
-    # {
-    #     'id':2480746,
-    #     'validation_function': 'validate_q1',
-    #     'scoring_function': 'score_q1'
-    # },
+
+    ## Q2
     {
         'id':2480748,
         'validation_function': 'validate_q2',
-        'scoring_function': 'score_q2'
+        'scoring_function': 'score_q2',
+        'fields': ['auc', 'accuracy']
     },
+
+    ## Q3
     # {
     #     'id':2480750,
     #     'validation_function': 'validate_q3',
     #     'scoring_function': 'score_q3'
     # },
+
+    ## testing
     {
         'id':2495614,
         'validation_function': 'validate_q2',
-        'scoring_function': 'score_q2'
+        'scoring_function': 'score_q2',
+        'fields': ['auc', 'accuracy']
+    },
+
+    ## use old Q1b queue for testing, too
+    {
+        'id':2480746,
+        'validation_function': 'validate_q1',
+        'scoring_function': 'score_q1',
+        'fields': ['correlation_pearson_clin',
+           'correlation_pearson_clin_gen',
+           'correlation_spearman_clin',
+           'correlation_spearman_clin_gen']
+
     }
 ]
 challenge_evaluations_map = {ev['id']:ev for ev in challenge_evaluations}
-
 
 robjects.r('source("validate_and_score.R")')
 r_validate_q1 = robjects.r['validate_q1']
@@ -47,6 +67,7 @@ r_validate_q2 = robjects.r['validate_q2']
 r_validate_q3 = robjects.r['validate_q3']
 r_score_q1 = robjects.r['score_q1']
 r_score_q2 = robjects.r['score_q2']
+r_mean_rank = robjects.r['mean_rank']
 
 
 def as_dict(vector):
@@ -88,11 +109,11 @@ def score_q1(submission, status):
     print result
     status.status = "SCORED"
 
-    keys = ['correlation_pearson_clin',
-            'correlation_pearson_clin_gen',
-            'correlation_spearman_clin',
-            'correlation_spearman_clin_gen']
-    annotations = {key:result[key] for key in keys}
+    if 'annotations' in status:
+        annotations = synapseclient.annotations.from_submission_status_annotations(status.annotations)
+    else:
+        annotations = {}
+    annotations.update(result)
 
     status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
     return status, ("Submission scored.\n\n    Correlations are:\n" +
@@ -107,8 +128,14 @@ def score_q2(submission, status):
     print result
     status.status = "SCORED"
 
-    keys = ['brier', 'auc', 'somer', 'accuracy']
-    annotations = {key:result[key] for key in keys}
+    if 'annotations' in status:
+        annotations = synapseclient.annotations.from_submission_status_annotations(status.annotations)
+    else:
+        annotations = {}
+    annotations.update(result)
+
+    # keys = ['brier', 'auc', 'somer', 'accuracy']
+    # annotations = {key:result[key] for key in keys}
 
     status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
     return status, ("Submission scored.\n\n" +
@@ -116,4 +143,15 @@ def score_q2(submission, status):
         "    AUC = {auc}\n" +
         "    Brier's score = {brier}\n" +
         "    Somer's D = {somer}\n").format(**annotations)
+
+
+def mean_rank(data):
+    ## convert to an R data frame
+    df = robjects.DataFrame({key:robjects.FloatVector(values) for key,values in data.iteritems()})
+
+    ## calculate the mean and final rankings
+    r_results = r_mean_rank(df)
+
+    return {name:col for name, col in r_results.items()}
+
 

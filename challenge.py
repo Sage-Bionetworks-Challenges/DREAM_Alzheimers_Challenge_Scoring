@@ -6,6 +6,7 @@ from synapseclient import Project, Folder, File
 from synapseclient import Evaluation, Submission, SubmissionStatus
 from synapseclient import Wiki
 
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from itertools import izip
 from StringIO import StringIO
@@ -36,7 +37,6 @@ ADMIN_USER_IDS = [1421212]
 QUOTA = 100
 SEND_VALIDATION_SUCCESS = False
 
-
 syn = synapseclient.Synapse()
 
 
@@ -56,6 +56,7 @@ with open("templates/scoring_error_email.txt") as f:
 
 with open("templates/error_notification_email.txt") as f:
     error_notification_template = f.read()
+
 
 
 def update_submissions_status_batch(evaluation, statuses):
@@ -80,6 +81,38 @@ def update_submissions_status_batch(evaluation, statuses):
                 time.sleep(2)
             else:
                 raise
+
+
+def get_status_annotations_as_dictionary(status):
+    """
+    Return the annotations of a SubmissionStatus object or an empty dictionary.
+    """
+    if 'annotations' in status:
+        return synapseclient.annotations.from_submission_status_annotations(status.annotations)
+    else:
+        return {}
+
+
+def get_user_name(profile):
+    names = []
+    if 'firstName' in profile:
+        names.append(profile['firstName'])
+    if 'lastName' in profile:
+        names.append(profile['lastName'])
+    if len(names)==0:
+        names.append(profile['userName'])
+    return " ".join(names)
+
+
+def add_team_annotation(submission, status):
+    annotations = get_status_annotations_as_dictionary(status)
+    if 'submitterAlias' in submission and submission.submitterAlias:
+        annotations['team'] = submission.submitterAlias
+    else:
+        profile = syn.getUserProfile(submission.userId)
+        annotations['team'] = get_user_name(profile)
+    status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
+    return status
 
 
 def send_message(template, submission, status, evaluation, message):
@@ -201,8 +234,14 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
             submission_counts_by_user.setdefault(submission.userId, 0)
             submission_counts_by_user[submission.userId] += 1
 
-            annotations = synapseclient.annotations.from_synapse_annotations(status.annotations)
+            annotations = synapseclient.annotations.from_submission_status_annotations(status.annotations)
             annotations['submission_number'] = submission_counts_by_user[submission.userId]
+            ## add team annotation to submissions
+            if 'submitterAlias' in submission and submission.submitterAlias:
+                annotations['team'] = submission.submitterAlias
+            else:
+                profile = syn.getUserProfile(submission.userId)
+                annotations['team'] = get_user_name(profile)
             status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
 
             msg += "\nThis is your %s submission out of a maximum of %d allowed." % (
@@ -239,6 +278,47 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
 
     print "\nscored %d submissions." % len(submissions)
     print '-' * 60 + '\n'
+
+    return len(submissions)
+
+
+def rank(evaluation, fields=[], ranking_func=mean_rank, dry_run=False):
+
+    ## initialize columns to hold scoring statistics
+    data = OrderedDict()
+    for field in fields:
+        data[field] = []
+
+    statuses = []
+
+    ## extract the scoring statistics from each scored submission
+    for submission, status in syn.getSubmissionBundles(evaluation, status='SCORED'):
+        statuses.append(status)
+        annotations = get_status_annotations_as_dictionary(status)
+        for field in fields:
+            data[field].append(annotations[field])
+
+    ## return a dictionary of vectors holding statistics to be added to the submission status
+    rank_statistics = ranking_func(data)
+
+    if dry_run:
+        ranking = []
+
+    ## put the ith set of stats onto the ith submission status
+    for i, status in enumerate(statuses):
+        annotations = get_status_annotations_as_dictionary(status)
+        annotations.update({key:values[i] for key,values in rank_statistics.iteritems()})
+        status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
+        if dry_run:
+            ranking.append((status.id, annotations['mean_rank'], annotations['final_rank']))
+
+    if not dry_run:
+        update_submissions_status_batch(evaluation, statuses)
+        print "updated %d submissions" % len(statuses)
+    else:
+        print "dry run: would have updated %d submissions" % len(statuses)
+        for record in sorted(ranking, key=lambda x: x[2]):
+            print "\t".join(str(x) for x in record)
 
 
 def list_submissions(evaluation, status=None, **kwargs):
@@ -277,6 +357,8 @@ def command_list(args):
 
 
 def command_validate(args):
+    if int(args.evaluation) not in challenge_evaluations_map:
+        raise KeyError("Evaluation id %s isn't in the map of known evaluations." % args.evaluation)
     validate(evaluation=syn.getEvaluation(args.evaluation),
              validation_func=globals()[challenge_evaluations_map[int(args.evaluation)]['validation_function']],
              send_messages=args.send_messages,
@@ -284,10 +366,33 @@ def command_validate(args):
 
 
 def command_score(args):
-    score(evaluation=syn.getEvaluation(args.evaluation),
-          scoring_func=globals()[challenge_evaluations_map[int(args.evaluation)]['scoring_function']],
-          send_messages=args.send_messages,
-          dry_run=args.dry_run)
+    if int(args.evaluation) not in challenge_evaluations_map:
+        raise KeyError("Evaluation id %s isn't in the map of known evaluations." % args.evaluation)
+    challenge_config = challenge_evaluations_map[int(args.evaluation)]
+    evaluation = syn.getEvaluation(args.evaluation)
+    num_scored = score(evaluation=evaluation,
+                       scoring_func=globals()[challenge_config['scoring_function']],
+                       send_messages=args.send_messages,
+                       dry_run=args.dry_run)
+    if num_scored > 0 and 'fields' in challenge_config:
+        rank(evaluation=evaluation,
+              fields=challenge_config['fields'],
+              dry_run=args.dry_run)
+
+
+def command_rank(args):
+    if int(args.evaluation) not in challenge_evaluations_map:
+        raise KeyError("Evaluation id %s isn't in the map of known evaluations." % args.evaluation)
+    challenge_config = challenge_evaluations_map[int(args.evaluation)]
+    evaluation = syn.getEvaluation(args.evaluation)
+    if 'fields' in challenge_config:
+        rank(evaluation=evaluation,
+              fields=challenge_config['fields'],
+              dry_run=args.dry_run)
+    else:
+        sys.stderr.write("Ranking requires a 'fields' entry in the challenge configuration "\
+                         "specifying which fields are to be ranked. Add this to the "\
+                         "definition of challenge_evaluations in ad_challenge_scoring.py.")
 
 
 def command_check_status(args):
@@ -331,7 +436,7 @@ def challenge():
     parser.add_argument("-u", "--user", help="UserName", default=None)
     parser.add_argument("-p", "--password", help="Password", default=None)
     parser.add_argument("--notifications", help="Send error notifications to challenge admins", action="store_true", default=False)
-    parser.add_argument("--send-messages", action="store_true", default=False)
+    parser.add_argument("--send-messages", help="Send error confirmation and validation errors to participants", action="store_true", default=False)
     parser.add_argument("--dry-run", help="Perform the requested command without updating anything in Synapse", action="store_true", default=False)
 
     subparsers = parser.add_subparsers(title="subcommand")
@@ -348,6 +453,10 @@ def challenge():
     parser_score = subparsers.add_parser('score', help="Score all VALIDATED submissions to an evaluation")
     parser_score.add_argument("evaluation", metavar="EVALUATION-ID", default=None)
     parser_score.set_defaults(func=command_score)
+
+    parser_rank = subparsers.add_parser('rank', help="Rank all SCORED submissions to an evaluation")
+    parser_rank.add_argument("evaluation", metavar="EVALUATION-ID", default=None)
+    parser_rank.set_defaults(func=command_rank)
 
     parser_status = subparsers.add_parser('status', help="Check the status of a submission")
     parser_status.add_argument("submission")
