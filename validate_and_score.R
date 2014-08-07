@@ -2,6 +2,8 @@
 ##  Validate and score AD Challenge submissions
 ############################################################
 suppressMessages(require(pROC))
+suppressMessages(require(synapseClient))
+
 
 DATA_DIR = "data/scoring"
 
@@ -13,7 +15,7 @@ read_delim_or_csv <- function(filename) {
     if (grepl('.csv$', filename)) {
         read.csv(filename, stringsAsFactors=FALSE)
     } else {
-        read.delim(filename, stringsAsFactors=FALSE)
+        read.table(filename, header=TRUE, quote="\"", fill=TRUE, stringsAsFactors=FALSE)
     }
 }
 
@@ -106,6 +108,22 @@ validate_q2 <- function(filename) {
     }
 
     result = validate_projids(expected, df)
+
+    if (!result$valid) {
+        return(result)
+    }
+
+    ## check that the Discordance column is either Concordant or Discordant
+    allowed_values = c('concordant', 'discordant')
+    lower_cased_discordance = tolower(df$Discordance)
+    result$valid = all(lower_cased_discordance %in% allowed_values)
+    if (!result$valid) {
+        result$message = sprintf("Unrecognized values in the Discordance column: (%s). Allowed values are (%s).",
+            paste(setdiff(lower_cased_discordance, allowed_values), collapse=','),
+            paste(allowed_values, collapse=','))
+    }
+
+    return(result)
 }
 
 validate_q3 <- function(filename) {
@@ -159,6 +177,17 @@ Q1_score = function (predicted, observed) {
          correlation_spearman_clin_gen=corr_spearman_clin_gen)
 }
 
+
+mean_rank = function (df) {
+    ranks <- as.data.frame(lapply(df, function(x) {rank(-x)}))
+    mean_rank <- apply(ranks, 1, mean)
+    final_rank <- rank(mean_rank)
+
+    results <- data.frame(mean_rank=mean_rank, final_rank=final_rank)
+    rownames(results) <- rownames(df)
+
+    return(results)
+}
 
 
 # Question 2 - Discordance ------------------------------------------------
