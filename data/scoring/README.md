@@ -1,7 +1,7 @@
 Truth files for scoring
 =======================
 
-Truth files are secret and not kept in source control and must be uploaded separately, possibly with a command such as:
+Truth files are secret and not kept in source control and must be uploaded to the scoring machine separately, possibly with a command such as:
 
     scp -i [key] data/scoring/* ubuntu@[scoring-machine]:/home/ubuntu/DREAM_Alzheimers_Challenge_Scoring/data/scoring/
 

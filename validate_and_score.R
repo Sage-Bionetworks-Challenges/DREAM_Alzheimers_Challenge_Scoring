@@ -2,6 +2,7 @@
 ##  Validate and score AD Challenge submissions
 ############################################################
 suppressMessages(require(pROC))
+suppressMessages(require(epiR))
 suppressMessages(require(synapseClient))
 
 
@@ -136,7 +137,7 @@ validate_q3 <- function(filename) {
 
     ## check that Diagnoses all come from the set of allowed values
     # TODO do we allow NAs?
-    diagnosis_values = c('Normal', 'MCI', 'AD')
+    diagnosis_values = c('CN', 'MCI', 'AD')
     result$valid = all(df$Diagnosis %in% diagnosis_values)
     if (!result$valid) {
         result$message = sprintf("Unrecognized values in the Diagnosis column: (%s). Allowed values are (%s).",
@@ -199,6 +200,17 @@ Q2_score = function (predicted, observed) {
     # combine data
     combined.df <- merge (predicted, observed, by='projid')
 
+    # > colnames(predicted)
+    # [1] "projid"      "Rank"        "Confidence"  "Discordance"
+    # > colnames(observed)
+    #  [1] "id"                        "AGE"
+    #  [3] "PTEDUCAT"                  "sex"
+    #  [5] "APOE4"                     "MMSE"
+    #  [7] "niareagansc"               "actual_discordance"
+    #  [9] "discordance_probability"   "prediction_rank"
+    # [11] "discordance_prediction"    "projid"
+    # [13] "actual_discordance_string"
+
     # calculate metrics
     # Brier's score
     q2.brier <- with (combined.df, mean ((Confidence - actual_discordance)^2))
@@ -220,10 +232,8 @@ Q2_score = function (predicted, observed) {
     }
 
     ## Accuracy: according to the AD Challenge wiki, 1=Discordant and 0=Concordant
-    predicted_discordance <- tolower(predicted$Discordance) == "discordant"
-    q2.accuracy <- sum(predicted_discordance==observed$actual_discordance) / length(observed$actual_discordance)
-
-    q2.balancedAccuracy <- balancedAccuracy(predicted_discordance,observed$actual_discordance)
+    predicted_discordance <- tolower(combined.df$Discordance) == "discordant"
+    q2.balancedAccuracy <- balancedAccuracy(predicted_discordance,combined.df$actual_discordance)
 
     #logDeviance <- function(confidence,true){
     #    if((min(confidence,na.rm=T)<0)|(max(confidence>1,na.rm=T))|(sum(is.na(confidence)>0))) stop ("Undiscovered matching error: recode")
@@ -238,17 +248,41 @@ Q2_score = function (predicted, observed) {
 }
 
 
+# Question 3 - Predict change in MMSE from image features -----------------
+
+Q3_score <- function (predicted, observed) {
+
+    combined = merge(predicted, observed, by.x='ID', by.y='Sample.ID')
+
+    ## predicted colnames = "ID", "MMSE", "Diagnosis"
+    ## observed colnames = "Sample.ID", ...,  "MMSE_Total", ..., "V1.Conclusion.Disease_Status", ...
+
+    ## compute two statistics on the MMSE
+    pearson_mmse = cor(combined$MMSE, combined$MMSE_Total, method="pearson")
+    ccc_mmse = epi.ccc(combined$MMSE, combined$MMSE_Total, ci="z-transform", conf.level=0.95)
+
+    percent_correct_diagnosis = sum(combined$Diagnosis==combined$V1.Conclusion.Disease_Status) / nrow(combined) * 100.0
+
+    list(pearson_mmse=pearson_mmse,
+         ccc_mmse=ccc_mmse$rho.c$est,
+         percent_correct_diagnosis=percent_correct_diagnosis)
+}
+
+
 score_q1 <- function(filename) {
-    df = read_delim_or_csv(filename)
-    expected = get_expected_format("q1.rosmap.csv")
-    df = df[match(expected$projid, df$projid),]
-    Q1_score(df, expected)
+    predicted = read_delim_or_csv(filename)
+    observed = get_expected_format("q1.rosmap.csv")
+    Q1_score(predicted, observed)
 }
 
 score_q2 <- function(filename) {
-    df = read_delim_or_csv(filename)
-    expected = get_expected_format("q2.observed.txt")
-    df = df[match(expected$projid, df$projid),]
-    Q2_score(df, expected)
+    predicted = read_delim_or_csv(filename)
+    observed = get_expected_format("q2.observed.txt")
+    Q2_score(predicted, observed)
 }
 
+score_q3 <- function(filename) {
+    predicted = read_delim_or_csv(filename)
+    observed = get_expected_format("q3.observed.csv")
+    Q3_score(predicted, observed)
+}

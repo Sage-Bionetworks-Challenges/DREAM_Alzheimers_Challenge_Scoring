@@ -34,6 +34,7 @@ BATCH_UPLOAD_RETRY_COUNT = 7
 
 ADMIN_USER_IDS = [1421212]
 
+# TODO: quota configured per queue, Q1=100, Q2=50, Q3=50
 QUOTA = 100
 SEND_VALIDATION_SUCCESS = False
 
@@ -284,6 +285,9 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
 
 def rank(evaluation, fields=[], ranking_func=mean_rank, dry_run=False):
 
+    sys.stdout.write('ranking evaluation: %s %s\n' % (evaluation.id, evaluation.name))
+    sys.stdout.flush()
+
     ## initialize columns to hold scoring statistics
     data = OrderedDict()
     for field in fields:
@@ -319,6 +323,8 @@ def rank(evaluation, fields=[], ranking_func=mean_rank, dry_run=False):
         print "dry run: would have updated %d submissions" % len(statuses)
         for record in sorted(ranking, key=lambda x: x[2]):
             print "\t".join(str(x) for x in record)
+
+    sys.stdout.write('\n\n' + '-' * 60 + '\n')
 
 
 def list_submissions(evaluation, status=None, **kwargs):
@@ -374,7 +380,9 @@ def command_score(args):
                        scoring_func=globals()[challenge_config['scoring_function']],
                        send_messages=args.send_messages,
                        dry_run=args.dry_run)
-    if num_scored > 0 and 'fields' in challenge_config:
+    if args.dry_run:
+        print "dry run: no sense in ranking 'til we really score some submissions."
+    elif num_scored > 0 and 'fields' in challenge_config:
         rank(evaluation=evaluation,
               fields=challenge_config['fields'],
               dry_run=args.dry_run)
@@ -416,17 +424,18 @@ def command_reset(args):
 
 def command_score_challenge(args):
     for challenge_evaluation in challenge_evaluations:
-        evaluation = syn.getEvaluation(challenge_evaluation['id'])
+        if challenge_evaluation.get('score_as_part_of_challenge', False):
+            evaluation = syn.getEvaluation(challenge_evaluation['id'])
 
-        validation_function = globals()[challenge_evaluation['validation_function']]
-        validate(evaluation, validation_function,
-            send_messages=args.send_messages,
-            dry_run=args.dry_run)
+            validation_function = globals()[challenge_evaluation['validation_function']]
+            validate(evaluation, validation_function,
+                send_messages=args.send_messages,
+                dry_run=args.dry_run)
 
-        scoring_function = globals()[challenge_evaluation['scoring_function']]
-        score(evaluation, scoring_function,
-            send_messages=args.send_messages,
-            dry_run=args.dry_run)
+            scoring_function = globals()[challenge_evaluation['scoring_function']]
+            score(evaluation, scoring_function,
+                send_messages=args.send_messages,
+                dry_run=args.dry_run)
 
 
 def challenge():

@@ -16,6 +16,7 @@ challenge_evaluations = [
     ## Q1
     {
         'id':2480744,
+        'score_as_part_of_challenge': True,
         'validation_function': 'validate_q1',
         'scoring_function': 'score_q1',
         'fields': ['correlation_pearson_clin',
@@ -27,29 +28,34 @@ challenge_evaluations = [
     ## Q2
     {
         'id':2480748,
+        'score_as_part_of_challenge': True,
         'validation_function': 'validate_q2',
         'scoring_function': 'score_q2',
         'fields': ['auc', 'accuracy']
     },
 
     ## Q3
-    # {
-    #     'id':2480750,
-    #     'validation_function': 'validate_q3',
-    #     'scoring_function': 'score_q3'
-    # },
+    {
+        'id':2480750,
+        'score_as_part_of_challenge': True,
+        'validation_function': 'validate_q3',
+        'scoring_function': 'score_q3',
+        'fields': ['pearson_mmse', 'ccc_mmse']
+    },
 
     ## testing
     {
         'id':2495614,
-        'validation_function': 'validate_q2',
-        'scoring_function': 'score_q2',
-        'fields': ['auc', 'accuracy']
+        'score_as_part_of_challenge': False,
+        'validation_function': 'validate_q3',
+        'scoring_function': 'score_q3',
+        'fields': ['pearson_mmse', 'ccc_mmse']
     },
 
     ## use old Q1b queue for testing, too
     {
         'id':2480746,
+        'score_as_part_of_challenge': False,
         'validation_function': 'validate_q1',
         'scoring_function': 'score_q1',
         'fields': ['correlation_pearson_clin',
@@ -67,6 +73,7 @@ r_validate_q2 = robjects.r['validate_q2']
 r_validate_q3 = robjects.r['validate_q3']
 r_score_q1 = robjects.r['score_q1']
 r_score_q2 = robjects.r['score_q2']
+r_score_q3 = robjects.r['score_q3']
 r_mean_rank = robjects.r['mean_rank']
 
 
@@ -117,10 +124,10 @@ def score_q1(submission, status):
 
     status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
     return status, ("Submission scored.\n\n    Correlations are:\n" +
-        "    pearson, clinical:          {correlation_pearson_clin}\n" +
-        "    pearson, clinical+genetic:  {correlation_pearson_clin_gen}\n" +
-        "    spearman, clinical:         {correlation_spearman_clin}\n" +
-        "    spearman, clinical+genetic: {correlation_spearman_clin_gen}\n").format(**annotations)
+        "    Pearson, clinical:          {correlation_pearson_clin}\n" +
+        "    Pearson, clinical+genetic:  {correlation_pearson_clin_gen}\n" +
+        "    Spearman, clinical:         {correlation_spearman_clin}\n" +
+        "    Spearman, clinical+genetic: {correlation_spearman_clin_gen}\n").format(**annotations)
 
 
 def score_q2(submission, status):
@@ -143,6 +150,27 @@ def score_q2(submission, status):
         "    AUC = {auc}\n" +
         "    Brier's score = {brier}\n" +
         "    Somer's D = {somer}\n").format(**annotations)
+
+
+def score_q3(submission, status):
+    result = as_dict(r_score_q3(submission.filePath))
+    print result
+    status.status = "SCORED"
+
+    if 'annotations' in status:
+        annotations = synapseclient.annotations.from_submission_status_annotations(status.annotations)
+    else:
+        annotations = {}
+    annotations.update(result)
+
+    # keys = ['pearson_mmse', 'ccc_mmse', 'percent_correct_diagnosis']
+    # annotations = {key:result[key] for key in keys}
+
+    status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
+    return status, ("Submission scored.\n\n" +
+        "    Pearson correlation = {pearson_mmse}\n" +
+        "    Concordance correlation coefficient = {ccc_mmse}\n" +
+        "    Diagnosis percent correct = {percent_correct_diagnosis}\n").format(**annotations)
 
 
 def mean_rank(data):
