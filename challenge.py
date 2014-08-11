@@ -142,7 +142,7 @@ def validate_submission(submission, status):
     return status, "OK"
 
 
-def validate(evaluation, validation_func=validate_submission, send_messages=False, dry_run=False):
+def validate(evaluation, validation_func=validate_submission, send_messages=False, notifications=False, dry_run=False):
     """
     It may be convenient to validate submissions in one pass before scoring
     them, especially if scoring takes a long time.
@@ -186,8 +186,17 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
                 status.status = "INVALID"
                 validation_message = st.getvalue()
 
+                if notifications:
+                    response = syn.sendMessage(
+                        userIds=ADMIN_USER_IDS,
+                        messageSubject="AD Challenge exception during validation",
+                        messageBody=error_notification_template.format(message=validation_message))
+                    print "sent message: ", response
+
         if not dry_run:
             syn.store(status)
+
+        print submission.id, submission.name, submission.userId, status.status
 
         ## send message AFTER storing status to ensure we don't get repeat messages
         if send_messages and (status.status=="INVALID" or SEND_VALIDATION_SUCCESS):
@@ -195,7 +204,13 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
             response = send_message(template, submission, status.status, evaluation, validation_message)
             print "sent message: ", response
 
-        print submission.id, submission.name, submission.userId, status.status
+        if notifications and status.status=="INVALID":
+            response = syn.sendMessage(
+                userIds=ADMIN_USER_IDS,
+                messageSubject="AD Challenge validation failure",
+                messageBody=message)
+            print "sent message: ", response
+
 
     print "\nvalidated %d submissions." % count
     print '-' * 60 + '\n'
@@ -206,7 +221,7 @@ def score_submission(submission, status):
     return status, "OK"
 
 
-def score(evaluation, scoring_func=score_submission, send_messages=False, dry_run=False):
+def score(evaluation, scoring_func=score_submission, send_messages=False, notifications=False, dry_run=False):
 
     sys.stdout.write('\n\n' + '-' * 60 + '\n')
     sys.stdout.write('scoring evaluation: %s %s\n' % (evaluation.id, evaluation.name))
@@ -257,6 +272,13 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
             status.status = "INVALID"
             messages.append(st.getvalue())
 
+            if notifications:
+                response = syn.sendMessage(
+                    userIds=ADMIN_USER_IDS,
+                    messageSubject="AD Challenge: exception during scoring",
+                    messageBody=error_notification_template.format(message=st.getvalue()))
+                print "sent message: ", response
+
         ## we could store each status update individually, but in this example
         ## we collect the updated status objects to do a batch update.
         #status = syn.store(status)
@@ -276,6 +298,7 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
             template = scored_template if status.status=="SCORED" else scoring_error_template
             response = send_message(template, submission, status.status, evaluation, message)
             print "sent message: ", response
+
 
     print "\nscored %d submissions." % len(submissions)
     print '-' * 60 + '\n'
@@ -368,6 +391,7 @@ def command_validate(args):
     validate(evaluation=syn.getEvaluation(args.evaluation),
              validation_func=globals()[challenge_evaluations_map[int(args.evaluation)]['validation_function']],
              send_messages=args.send_messages,
+             notifications=args.notifications,
              dry_run=args.dry_run)
 
 
@@ -379,6 +403,7 @@ def command_score(args):
     num_scored = score(evaluation=evaluation,
                        scoring_func=globals()[challenge_config['scoring_function']],
                        send_messages=args.send_messages,
+                       notifications=args.notifications,
                        dry_run=args.dry_run)
     if args.dry_run:
         print "dry run: no sense in ranking 'til we really score some submissions."
@@ -430,12 +455,21 @@ def command_score_challenge(args):
             validation_function = globals()[challenge_evaluation['validation_function']]
             validate(evaluation, validation_function,
                 send_messages=args.send_messages,
+                notifications=args.notifications,
                 dry_run=args.dry_run)
 
             scoring_function = globals()[challenge_evaluation['scoring_function']]
-            score(evaluation, scoring_function,
-                send_messages=args.send_messages,
-                dry_run=args.dry_run)
+            num_scored = score(evaluation=evaluation,
+                               scoring_func=scoring_function,
+                               send_messages=args.send_messages,
+                               notifications=args.notifications,
+                               dry_run=args.dry_run)
+            if args.dry_run:
+                print "dry run: no sense in ranking 'til we really score some submissions."
+            elif num_scored > 0 and 'fields' in challenge_evaluation:
+                rank(evaluation=evaluation,
+                      fields=challenge_evaluation['fields'],
+                      dry_run=args.dry_run)
 
 
 def challenge():
