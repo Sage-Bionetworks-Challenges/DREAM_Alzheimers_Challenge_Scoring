@@ -204,14 +204,6 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
             response = send_message(template, submission, status.status, evaluation, validation_message)
             print "sent message: ", response
 
-        if notifications and status.status=="INVALID":
-            response = syn.sendMessage(
-                userIds=ADMIN_USER_IDS,
-                messageSubject="AD Challenge validation failure",
-                messageBody=message)
-            print "sent message: ", response
-
-
     print "\nvalidated %d submissions." % count
     print '-' * 60 + '\n'
 
