@@ -456,18 +456,18 @@ def command_reset(args):
 
 
 def command_score_challenge(args):
-    for challenge_evaluation in challenge_evaluations:
-        if challenge_evaluation.get('score_as_part_of_challenge', False):
-            evaluation = syn.getEvaluation(challenge_evaluation['id'])
+    for challenge_config in challenge_evaluations:
+        if challenge_config.get('score_as_part_of_challenge', False):
+            evaluation = syn.getEvaluation(challenge_config['id'])
 
-            validation_function = globals()[challenge_evaluation['validation_function']]
+            validation_function = globals()[challenge_config['validation_function']]
             validate(evaluation, validation_function,
                 send_messages=args.send_messages,
                 notifications=args.notifications,
                 dry_run=args.dry_run,
                 submission_quota=challenge_config.get('submission_quota',None))
 
-            scoring_function = globals()[challenge_evaluation['scoring_function']]
+            scoring_function = globals()[challenge_config['scoring_function']]
             num_scored = score(evaluation=evaluation,
                                scoring_func=scoring_function,
                                send_messages=args.send_messages,
@@ -476,9 +476,9 @@ def command_score_challenge(args):
                                submission_quota=challenge_config.get('submission_quota',None))
             if args.dry_run:
                 print "dry run: no sense in ranking 'til we really score some submissions."
-            elif num_scored > 0 and 'fields' in challenge_evaluation:
+            elif num_scored > 0 and 'fields' in challenge_config:
                 rank(evaluation=evaluation,
-                      fields=challenge_evaluation['fields'],
+                      fields=challenge_config['fields'],
                       dry_run=args.dry_run)
 
 
