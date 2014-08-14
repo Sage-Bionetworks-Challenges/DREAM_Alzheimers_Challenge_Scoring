@@ -95,9 +95,9 @@ def get_status_annotations_as_dictionary(status):
 
 def get_user_name(profile):
     names = []
-    if 'firstName' in profile:
+    if 'firstName' in profile and profile['firstName'] and profile['firstName'].strip():
         names.append(profile['firstName'])
-    if 'lastName' in profile:
+    if 'lastName' in profile and profile['lastName'] and profile['lastName'].strip():
         names.append(profile['lastName'])
     if len(names)==0:
         names.append(profile['userName'])
