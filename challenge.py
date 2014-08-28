@@ -37,7 +37,8 @@ ADMIN_USER_IDS = [1421212]
 # TODO: quota configured per queue, Q1=100, Q2=50, Q3=50
 SEND_VALIDATION_SUCCESS = False
 
-syn = synapseclient.Synapse()
+# module level variable to hold Synapse object
+syn = None
 
 
 
@@ -360,7 +361,7 @@ def list_submissions(evaluation, status=None, **kwargs):
     print '-' * 60
 
     for submission, status in syn.getSubmissionBundles(evaluation, status=status):
-        print submission.id, submission.name, submission.userId, status.status
+        print submission.id, submission.createdOn, status.status, submission.name, submission.userId
 
 
 def count_submissions_by_user(evaluation, status=None):
@@ -484,6 +485,8 @@ def command_score_challenge(args):
 
 def challenge():
 
+    global syn
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-u", "--user", help="UserName", default=None)
@@ -491,6 +494,7 @@ def challenge():
     parser.add_argument("--notifications", help="Send error notifications to challenge admins", action="store_true", default=False)
     parser.add_argument("--send-messages", help="Send error confirmation and validation errors to participants", action="store_true", default=False)
     parser.add_argument("--dry-run", help="Perform the requested command without updating anything in Synapse", action="store_true", default=False)
+    parser.add_argument("--debug", help="Show verbose error output from Synapse API calls", action="store_true", default=False)
 
     subparsers = parser.add_subparsers(title="subcommand")
 
@@ -538,6 +542,7 @@ def challenge():
         return 75
 
     try:
+        syn = synapseclient.Synapse(debug=args.debug)
         if not args.user:
             args.user = os.environ.get('SYNAPSE_USER', None)
         if not args.password:
