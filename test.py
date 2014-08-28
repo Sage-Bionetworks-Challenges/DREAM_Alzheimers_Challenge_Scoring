@@ -46,9 +46,14 @@ try:
         entity = syn.store(File(filename, parent=project))
         submission = syn.submit(q1_evaluation, entity, name=filename, teamName="Mean Squared Error Blues")
 
+    ## submit one again that will be over quota, since we
+    ## already have 1 good submission
+    entity = syn.store(File("test_data/q1.0001.txt", parent=project))
+    submission = syn.submit(q1_evaluation, entity, teamName="Mean Squared Error Blues")
+
     list_submissions(q1_evaluation)
 
-    validate(q1_evaluation, validation_func=challenge.validate_q1)
+    validate(q1_evaluation, validation_func=challenge.validate_q1, submission_quota=1)
     score(q1_evaluation, scoring_func=challenge.score_q1)
     rank(q1_evaluation, fields=['correlation_pearson_clin',
                              'correlation_pearson_clin_gen',

@@ -22,7 +22,8 @@ challenge_evaluations = [
         'fields': ['correlation_pearson_clin',
                    'correlation_pearson_clin_gen',
                    'correlation_spearman_clin',
-                   'correlation_spearman_clin_gen']
+                   'correlation_spearman_clin_gen'],
+        'submission_quota': 100
     },
 
     ## Q2
@@ -31,7 +32,8 @@ challenge_evaluations = [
         'score_as_part_of_challenge': True,
         'validation_function': 'validate_q2',
         'scoring_function': 'score_q2',
-        'fields': ['auc', 'accuracy']
+        'fields': ['auc', 'accuracy'],
+        'submission_quota': 50
     },
 
     ## Q3
@@ -40,7 +42,8 @@ challenge_evaluations = [
         'score_as_part_of_challenge': True,
         'validation_function': 'validate_q3',
         'scoring_function': 'score_q3',
-        'fields': ['pearson_mmse', 'ccc_mmse']
+        'fields': ['pearson_mmse', 'ccc_mmse'],
+        'submission_quota': 50
     },
 
     ## testing
@@ -61,8 +64,8 @@ challenge_evaluations = [
         'fields': ['correlation_pearson_clin',
            'correlation_pearson_clin_gen',
            'correlation_spearman_clin',
-           'correlation_spearman_clin_gen']
-
+           'correlation_spearman_clin_gen'],
+        'submission_quota': 50
     }
 ]
 challenge_evaluations_map = {ev['id']:ev for ev in challenge_evaluations}

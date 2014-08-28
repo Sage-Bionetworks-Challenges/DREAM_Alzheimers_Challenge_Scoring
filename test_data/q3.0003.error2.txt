@@ -1,7 +1,7 @@
 ID	MMSE	Diagnosis
 1001	17	AD
 1002	25	MCI
-1003	30	What's this doing here?
+1003	30	WAIFN
 1004	29	CN
 1005	21	MCI
 1006	14	AD

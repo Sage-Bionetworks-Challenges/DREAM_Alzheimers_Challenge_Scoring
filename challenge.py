@@ -35,10 +35,10 @@ BATCH_UPLOAD_RETRY_COUNT = 7
 ADMIN_USER_IDS = [1421212]
 
 # TODO: quota configured per queue, Q1=100, Q2=50, Q3=50
-QUOTA = 100
 SEND_VALIDATION_SUCCESS = False
 
-syn = synapseclient.Synapse()
+# module level variable to hold Synapse object
+syn = None
 
 
 
@@ -96,9 +96,9 @@ def get_status_annotations_as_dictionary(status):
 
 def get_user_name(profile):
     names = []
-    if 'firstName' in profile:
+    if 'firstName' in profile and profile['firstName'] and profile['firstName'].strip():
         names.append(profile['firstName'])
-    if 'lastName' in profile:
+    if 'lastName' in profile and profile['lastName'] and profile['lastName'].strip():
         names.append(profile['lastName'])
     if len(names)==0:
         names.append(profile['userName'])
@@ -142,7 +142,12 @@ def validate_submission(submission, status):
     return status, "OK"
 
 
-def validate(evaluation, validation_func=validate_submission, send_messages=False, dry_run=False):
+def validate(evaluation,
+             validation_func=validate_submission,
+             send_messages=False,
+             notifications=False,
+             dry_run=False,
+             submission_quota=None):
     """
     It may be convenient to validate submissions in one pass before scoring
     them, especially if scoring takes a long time.
@@ -162,15 +167,12 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
 
         count += 1
 
-        if submission_counts_by_user.get(submission.userId, 0) >= QUOTA:
+        if submission_quota and submission_counts_by_user.get(submission.userId, 0) >= submission_quota:
             status.status = "INVALID"
-            validation_message = "You have reached the submission quota. You have submitted %d entries out of a maximum of %d allowed." % (submission_counts_by_user.get(submission.userId, 0), QUOTA)
+            validation_message = "You have reached the submission quota. You have submitted %d entries out of a maximum of %d allowed." % (submission_counts_by_user.get(submission.userId, 0), submission_quota)
+            print validation_message
 
         else:
-            ## keep track of user's submission counts as we go
-            submission_counts_by_user.setdefault(submission.userId, 0)
-            submission_counts_by_user[submission.userId] += 1
-
             ## refetch the submission so that we get the file path
             ## to be later replaced by a "downloadFiles" flag on getSubmissionBundles
             submission = syn.getSubmission(submission)
@@ -189,13 +191,25 @@ def validate(evaluation, validation_func=validate_submission, send_messages=Fals
         if not dry_run:
             syn.store(status)
 
+        ## keep track of user's submission counts as we go
+        if status.status=="VALIDATED":
+            submission_counts_by_user.setdefault(submission.userId, 0)
+            submission_counts_by_user[submission.userId] += 1
+
+        print submission.id, submission.name, submission.userId, status.status
+
         ## send message AFTER storing status to ensure we don't get repeat messages
         if send_messages and (status.status=="INVALID" or SEND_VALIDATION_SUCCESS):
             template = confirmation_template if status.status=="VALIDATED" else validation_error_template
             response = send_message(template, submission, status.status, evaluation, validation_message)
             print "sent message: ", response
 
-        print submission.id, submission.name, submission.userId, status.status
+        if notifications and status.status=="INVALID":
+            response = syn.sendMessage(
+                userIds=ADMIN_USER_IDS,
+                messageSubject="AD Challenge exception during validation",
+                messageBody=error_notification_template.format(message=validation_message))
+            print "sent notification: ", response
 
     print "\nvalidated %d submissions." % count
     print '-' * 60 + '\n'
@@ -206,7 +220,12 @@ def score_submission(submission, status):
     return status, "OK"
 
 
-def score(evaluation, scoring_func=score_submission, send_messages=False, dry_run=False):
+def score(evaluation,
+          scoring_func=score_submission,
+          send_messages=False,
+          notifications=False,
+          dry_run=False,
+          submission_quota=None):
 
     sys.stdout.write('\n\n' + '-' * 60 + '\n')
     sys.stdout.write('scoring evaluation: %s %s\n' % (evaluation.id, evaluation.name))
@@ -245,8 +264,10 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
                 annotations['team'] = get_user_name(profile)
             status.annotations = synapseclient.annotations.to_submission_status_annotations(annotations, is_private=False)
 
-            msg += "\nThis is your %s submission out of a maximum of %d allowed." % (
-                    to_ordinal(submission_counts_by_user[submission.userId]), QUOTA)
+            if submission_quota:
+                msg += "\nThis is your %s submission out of a maximum of %d allowed." % (
+                        to_ordinal(submission_counts_by_user[submission.userId]), submission_quota)
+
             messages.append(msg)
         except Exception as ex1:
             sys.stderr.write('Error scoring submission %s %s:\n' % (submission.name, submission.id))
@@ -256,6 +277,13 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
             sys.stderr.write('\n')
             status.status = "INVALID"
             messages.append(st.getvalue())
+
+            if notifications:
+                response = syn.sendMessage(
+                    userIds=ADMIN_USER_IDS,
+                    messageSubject="AD Challenge: exception during scoring",
+                    messageBody=error_notification_template.format(message=st.getvalue()))
+                print "sent notification: ", response
 
         ## we could store each status update individually, but in this example
         ## we collect the updated status objects to do a batch update.
@@ -276,6 +304,7 @@ def score(evaluation, scoring_func=score_submission, send_messages=False, dry_ru
             template = scored_template if status.status=="SCORED" else scoring_error_template
             response = send_message(template, submission, status.status, evaluation, message)
             print "sent message: ", response
+
 
     print "\nscored %d submissions." % len(submissions)
     print '-' * 60 + '\n'
@@ -332,7 +361,7 @@ def list_submissions(evaluation, status=None, **kwargs):
     print '-' * 60
 
     for submission, status in syn.getSubmissionBundles(evaluation, status=status):
-        print submission.id, submission.name, submission.userId, status.status
+        print submission.id, submission.createdOn, status.status, submission.name, submission.userId
 
 
 def count_submissions_by_user(evaluation, status=None):
@@ -365,10 +394,13 @@ def command_list(args):
 def command_validate(args):
     if int(args.evaluation) not in challenge_evaluations_map:
         raise KeyError("Evaluation id %s isn't in the map of known evaluations." % args.evaluation)
+    challenge_config = challenge_evaluations_map[int(args.evaluation)]
     validate(evaluation=syn.getEvaluation(args.evaluation),
-             validation_func=globals()[challenge_evaluations_map[int(args.evaluation)]['validation_function']],
+             validation_func=globals()[challenge_config['validation_function']],
              send_messages=args.send_messages,
-             dry_run=args.dry_run)
+             notifications=args.notifications,
+             dry_run=args.dry_run,
+             submission_quota=challenge_config.get('submission_quota',None))
 
 
 def command_score(args):
@@ -379,7 +411,9 @@ def command_score(args):
     num_scored = score(evaluation=evaluation,
                        scoring_func=globals()[challenge_config['scoring_function']],
                        send_messages=args.send_messages,
-                       dry_run=args.dry_run)
+                       notifications=args.notifications,
+                       dry_run=args.dry_run,
+                       submission_quota=challenge_config.get('submission_quota',None))
     if args.dry_run:
         print "dry run: no sense in ranking 'til we really score some submissions."
     elif num_scored > 0 and 'fields' in challenge_config:
@@ -423,22 +457,35 @@ def command_reset(args):
 
 
 def command_score_challenge(args):
-    for challenge_evaluation in challenge_evaluations:
-        if challenge_evaluation.get('score_as_part_of_challenge', False):
-            evaluation = syn.getEvaluation(challenge_evaluation['id'])
+    for challenge_config in challenge_evaluations:
+        if challenge_config.get('score_as_part_of_challenge', False):
+            evaluation = syn.getEvaluation(challenge_config['id'])
 
-            validation_function = globals()[challenge_evaluation['validation_function']]
+            validation_function = globals()[challenge_config['validation_function']]
             validate(evaluation, validation_function,
                 send_messages=args.send_messages,
-                dry_run=args.dry_run)
+                notifications=args.notifications,
+                dry_run=args.dry_run,
+                submission_quota=challenge_config.get('submission_quota',None))
 
-            scoring_function = globals()[challenge_evaluation['scoring_function']]
-            score(evaluation, scoring_function,
-                send_messages=args.send_messages,
-                dry_run=args.dry_run)
+            scoring_function = globals()[challenge_config['scoring_function']]
+            num_scored = score(evaluation=evaluation,
+                               scoring_func=scoring_function,
+                               send_messages=args.send_messages,
+                               notifications=args.notifications,
+                               dry_run=args.dry_run,
+                               submission_quota=challenge_config.get('submission_quota',None))
+            if args.dry_run:
+                print "dry run: no sense in ranking 'til we really score some submissions."
+            elif num_scored > 0 and 'fields' in challenge_config:
+                rank(evaluation=evaluation,
+                      fields=challenge_config['fields'],
+                      dry_run=args.dry_run)
 
 
 def challenge():
+
+    global syn
 
     parser = argparse.ArgumentParser()
 
@@ -447,6 +494,7 @@ def challenge():
     parser.add_argument("--notifications", help="Send error notifications to challenge admins", action="store_true", default=False)
     parser.add_argument("--send-messages", help="Send error confirmation and validation errors to participants", action="store_true", default=False)
     parser.add_argument("--dry-run", help="Perform the requested command without updating anything in Synapse", action="store_true", default=False)
+    parser.add_argument("--debug", help="Show verbose error output from Synapse API calls", action="store_true", default=False)
 
     subparsers = parser.add_subparsers(title="subcommand")
 
@@ -494,6 +542,7 @@ def challenge():
         return 75
 
     try:
+        syn = synapseclient.Synapse(debug=args.debug)
         if not args.user:
             args.user = os.environ.get('SYNAPSE_USER', None)
         if not args.password:
@@ -514,7 +563,7 @@ def challenge():
                 userIds=ADMIN_USER_IDS,
                 messageSubject="Exception in AD Challenge scoring harness",
                 messageBody=message)
-            print "sent message: ", response
+            print "sent notification: ", response
 
     finally:
         update_lock.release()

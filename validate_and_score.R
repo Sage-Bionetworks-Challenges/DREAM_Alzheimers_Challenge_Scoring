@@ -39,23 +39,26 @@ get_expected_format <- function(filename) {
 ##      valid: TRUE / FALSE
 ##    message: a string
 validate_data_frame <- function(expected, df) {
-    if (any (is.na(df))) stop ("Data format is invalid: all subjects must be predicted")
+    if (any (is.na(df))) {
+        return(list(valid=FALSE, message=sprintf(
+            "Data format is invalid: all subjects must be predicted")))
+    }
 
     ## Either exceptions or returning a list works, not
     ## sure which is better, yet.
 
     if (!all(colnames(expected)==colnames(df))) {
-        stop(sprintf(
+        return(list(valid=FALSE, message=sprintf(
             "Column names of submission were (%s) but should be (%s).",
             paste(colnames(df), collapse=", "),
-            paste(colnames(expected), collapse=", ")))
+            paste(colnames(expected), collapse=", "))))
     }
 
     if (!all(dim(expected)==dim(df))) {
-        stop(sprintf(
+        return(list(valid=FALSE, message=sprintf(
             "Dimensions of submission (%s) are not as expected (%s).",
             paste(dim(df), collapse=', '),
-            paste(dim(expected), collapse=', ')))
+            paste(dim(expected), collapse=', '))))
     }
 
     return(list(valid=TRUE, message="OK"))
