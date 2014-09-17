@@ -76,6 +76,18 @@ validate_projids <- function(expected, df) {
     return(list(valid=TRUE, message="OK"))
 }
 
+validate_sample_ids <- function(expected_ids, submitted_ids) {
+    if (!setequal(submitted_ids, expected_ids)) {
+        return(list(
+            valid=FALSE,
+            message=sprintf("The ID column contained unrecognized sample identifiers: \"%s\". The expected identifiers look like these: \"%s\".",
+                paste(head(setdiff(submitted_ids, expected_ids)), collapse=", "),
+                paste(head(expected_ids), collapse=", "))))
+    }
+
+    return(list(valid=TRUE, message="OK"))
+}
+
 
 validate_q1 <- function(filename) {
     df = read_delim_or_csv(filename)
@@ -132,8 +144,17 @@ validate_q2 <- function(filename) {
 
 validate_q3 <- function(filename) {
     df = read_delim_or_csv(filename)
-    result = validate_data_frame(get_expected_format("q3.txt"), df)
+    expected = get_expected_format("q3.txt")
 
+    result = validate_data_frame(expected, df)
+    if (!result$valid) {
+        return(result)
+    }
+
+    ## fix for lower case sample IDs ex: "sample8" which should be "Sample8"
+    df$ID <- gsub("sample", "Sample", df$ID)
+
+    result = validate_sample_ids(expected$ID, df$ID)
     if (!result$valid) {
         return(result)
     }
@@ -255,7 +276,13 @@ Q2_score = function (predicted, observed) {
 
 Q3_score <- function (predicted, observed) {
 
+    ## fix for lower case sample IDs ex: "sample8" which should be "Sample8"
+    predicted$ID <- gsub("sample", "Sample", predicted$ID)
+
     combined = merge(predicted, observed, by.x='ID', by.y='Sample.ID')
+    if (nrow(combined) != nrow(observed)) {
+        stop("Sample IDs don't match up")
+    }
 
     ## predicted colnames = "ID", "MMSE", "Diagnosis"
     ## observed colnames = "Sample.ID", ...,  "MMSE_Total", ..., "V1.Conclusion.Disease_Status", ...
