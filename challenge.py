@@ -365,6 +365,16 @@ def list_submissions(evaluation, status=None, **kwargs):
         print submission.id, submission.createdOn, status.status, submission.name, submission.userId
 
 
+def list_evaluations():
+    print '\n\nEvaluations configured'
+    print '-' * 60
+
+    for challenge_config in ad_challenge_scoring.config_evaluations:
+        evaluation = syn.getEvaluation(challenge_config['id'])
+        print "Evaluation: %s" % evaluation.id, evaluation.name
+
+
+
 def count_submissions_by_user(evaluation, status=None):
     submission_counts_by_user = {}
     for submission, status in syn.getSubmissionBundles(evaluation, status=status):
@@ -388,8 +398,11 @@ def to_ordinal(i):
 
 
 def command_list(args):
-    list_submissions(evaluation=syn.getEvaluation(args.evaluation),
-                     status=args.status)
+    if args.evaluation:
+        list_submissions(evaluation=syn.getEvaluation(args.evaluation),
+                         status=args.status)
+    else:
+        list_evaluations()
 
 
 def command_validate(args):
@@ -451,10 +464,11 @@ def command_check_status(args):
 
 
 def command_reset(args):
-    status = syn.getSubmissionStatus(args.submission)
-    status.status = args.status
-    if not args.dry_run:
-        print syn.store(status)
+    for submission in args.submission:
+        status = syn.getSubmissionStatus(submission)
+        status.status = args.status
+        if not args.dry_run:
+            print syn.store(status)
 
 
 def command_score_challenge(args):
@@ -499,7 +513,7 @@ def challenge():
     subparsers = parser.add_subparsers(title="subcommand")
 
     parser_list = subparsers.add_parser('list', help="List submissions to an evaluation")
-    parser_list.add_argument("evaluation", metavar="EVALUATION-ID", default=None)
+    parser_list.add_argument("evaluation", metavar="EVALUATION-ID", nargs='?', default=None)
     parser_list.add_argument("-s", "--status", default=None)
     parser_list.set_defaults(func=command_list)
 
@@ -520,7 +534,7 @@ def challenge():
     parser_status.set_defaults(func=command_check_status)
 
     parser_reset = subparsers.add_parser('reset', help="Reset a submission to RECEIVED for re-scoring (or set to some other status)")
-    parser_reset.add_argument("submission")
+    parser_reset.add_argument("submission", metavar="SUBMISSION-ID", type=int, nargs='+', help="One or more submission IDs")
     parser_reset.add_argument("-s", "--status", default='RECEIVED')
     parser_reset.set_defaults(func=command_reset)
 

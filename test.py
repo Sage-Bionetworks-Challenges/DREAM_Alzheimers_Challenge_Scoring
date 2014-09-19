@@ -51,9 +51,9 @@ try:
     print "Evaluation, Q3:", q3_evaluation.id
 
     ## fix up config_evaluations to refer to these evaluations
-    ad_challenge.config_evaluations[0]['id'] = q1_evaluation.id
-    ad_challenge.config_evaluations[1]['id'] = q2_evaluation.id
-    ad_challenge.config_evaluations[2]['id'] = q3_evaluation.id
+    ad_challenge.config_evaluations[0]['id'] = int(q1_evaluation.id)
+    ad_challenge.config_evaluations[1]['id'] = int(q2_evaluation.id)
+    ad_challenge.config_evaluations[2]['id'] = int(q3_evaluation.id)
     ad_challenge.config_evaluations_map = {ev['id']:ev for ev in ad_challenge.config_evaluations}
 
 
