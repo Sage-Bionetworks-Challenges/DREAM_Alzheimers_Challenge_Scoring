@@ -63,7 +63,7 @@ config_evaluations = [
     ## Q1 final
     {
         'id':2700269,
-        'score_as_part_of_challenge': False,
+        'score_as_part_of_challenge': True,
         'validation_function': 'validate_q1',
         'validation_expected_format': 'q1.final.example.txt',
         'scoring_function': 'score_q1',
@@ -77,7 +77,7 @@ config_evaluations = [
     ## Q2 final
     {
         'id':2700271,
-        'score_as_part_of_challenge': False,
+        'score_as_part_of_challenge': True,
         'validation_function': 'validate_q2',
         'validation_expected_format': 'q2.final.example.txt',
         'scoring_function': 'score_q2',
@@ -88,7 +88,7 @@ config_evaluations = [
     ## Q3 final
     {
         'id':2700273,
-        'score_as_part_of_challenge': False,
+        'score_as_part_of_challenge': True,
         'validation_function': 'validate_q3',
         'validation_expected_format': 'q3.final.example.txt',
         'scoring_function': 'score_q3',
@@ -161,7 +161,7 @@ def validate_submission(evaluation, submission, status):
     """
     To be called by challenge.py:validate()
     """
-    config = config_evaluations_map[evaluation.id]
+    config = config_evaluations_map[int(evaluation.id)]
 
     ## get the R function that validates submissions for
     ## this evaluation
@@ -178,7 +178,7 @@ def score_submission(evaluation, submission, status):
     """
     To be called by challenge.py:score()
     """
-    config = config_evaluations_map[evaluation.id]
+    config = config_evaluations_map[int(evaluation.id)]
 
     ## get the R function that scores submissions for this
     ## evaluation and a matching template for formatting the output
