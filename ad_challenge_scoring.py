@@ -71,7 +71,8 @@ config_evaluations = [
         'fields': ['correlation_pearson_clin',
                    'correlation_pearson_clin_gen',
                    'correlation_spearman_clin',
-                   'correlation_spearman_clin_gen']
+                   'correlation_spearman_clin_gen'],
+        'submission_quota': 2
     },
 
     ## Q2 final
@@ -82,7 +83,8 @@ config_evaluations = [
         'validation_expected_format': 'q2.final.example.txt',
         'scoring_function': 'score_q2',
         'observed': 'q2.final.observed.txt',
-        'fields': ['auc', 'accuracy']
+        'fields': ['auc', 'accuracy'],
+        'submission_quota': 2
     },
 
     ## Q3 final
@@ -93,7 +95,8 @@ config_evaluations = [
         'validation_expected_format': 'q3.final.example.txt',
         'scoring_function': 'score_q3',
         'observed': 'q3.final.observed.txt',
-        'fields': ['pearson_mmse', 'ccc_mmse']
+        'fields': ['pearson_mmse', 'ccc_mmse'],
+        'submission_quota': 2
     },
 
     ## testing
