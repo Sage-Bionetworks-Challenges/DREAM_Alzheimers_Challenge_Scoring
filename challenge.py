@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 from itertools import izip
 from StringIO import StringIO
 
-from ad_challenge_scoring import *
+## import challenge specific validation and scoring and configuration
+import ad_challenge_scoring
 
 import lock
 import argparse
@@ -178,7 +179,7 @@ def validate(evaluation,
             submission = syn.getSubmission(submission)
 
             try:
-                status, validation_message = validation_func(submission, status)
+                status, validation_message = validation_func(evaluation, submission, status)
             except Exception as ex1:
                 sys.stderr.write('Error validating submission %s %s:\n' % (submission.name, submission.id))
                 st = StringIO()
@@ -248,7 +249,7 @@ def score(evaluation,
         submission = syn.getSubmission(submission)
 
         try:
-            status, msg = scoring_func(submission, status)
+            status, msg = scoring_func(evaluation, submission, status)
 
             ## keep track of user's submission counts as we go
             submission_counts_by_user.setdefault(submission.userId, 0)
@@ -312,7 +313,7 @@ def score(evaluation,
     return len(submissions)
 
 
-def rank(evaluation, fields=[], ranking_func=mean_rank, dry_run=False):
+def rank(evaluation, fields=[], dry_run=False):
 
     sys.stdout.write('ranking evaluation: %s %s\n' % (evaluation.id, evaluation.name))
     sys.stdout.flush()
@@ -332,7 +333,7 @@ def rank(evaluation, fields=[], ranking_func=mean_rank, dry_run=False):
             data[field].append(annotations[field])
 
     ## return a dictionary of vectors holding statistics to be added to the submission status
-    rank_statistics = ranking_func(data)
+    rank_statistics = ad_challenge_scoring.mean_rank(data)
 
     if dry_run:
         ranking = []
@@ -392,11 +393,11 @@ def command_list(args):
 
 
 def command_validate(args):
-    if int(args.evaluation) not in challenge_evaluations_map:
+    if int(args.evaluation) not in ad_challenge_scoring.config_evaluations_map:
         raise KeyError("Evaluation id %s isn't in the map of known evaluations." % args.evaluation)
-    challenge_config = challenge_evaluations_map[int(args.evaluation)]
+    challenge_config = ad_challenge_scoring.config_evaluations_map[int(args.evaluation)]
     validate(evaluation=syn.getEvaluation(args.evaluation),
-             validation_func=globals()[challenge_config['validation_function']],
+             validation_func=ad_challenge_scoring.validate_submission,
              send_messages=args.send_messages,
              notifications=args.notifications,
              dry_run=args.dry_run,
@@ -404,12 +405,12 @@ def command_validate(args):
 
 
 def command_score(args):
-    if int(args.evaluation) not in challenge_evaluations_map:
+    if int(args.evaluation) not in ad_challenge_scoring.config_evaluations_map:
         raise KeyError("Evaluation id %s isn't in the map of known evaluations." % args.evaluation)
-    challenge_config = challenge_evaluations_map[int(args.evaluation)]
+    challenge_config = ad_challenge_scoring.config_evaluations_map[int(args.evaluation)]
     evaluation = syn.getEvaluation(args.evaluation)
     num_scored = score(evaluation=evaluation,
-                       scoring_func=globals()[challenge_config['scoring_function']],
+                       scoring_func=ad_challenge_scoring.score_submission,
                        send_messages=args.send_messages,
                        notifications=args.notifications,
                        dry_run=args.dry_run,
@@ -423,9 +424,9 @@ def command_score(args):
 
 
 def command_rank(args):
-    if int(args.evaluation) not in challenge_evaluations_map:
+    if int(args.evaluation) not in ad_challenge_scoring.config_evaluations_map:
         raise KeyError("Evaluation id %s isn't in the map of known evaluations." % args.evaluation)
-    challenge_config = challenge_evaluations_map[int(args.evaluation)]
+    challenge_config = ad_challenge_scoring.config_evaluations_map[int(args.evaluation)]
     evaluation = syn.getEvaluation(args.evaluation)
     if 'fields' in challenge_config:
         rank(evaluation=evaluation,
@@ -434,7 +435,7 @@ def command_rank(args):
     else:
         sys.stderr.write("Ranking requires a 'fields' entry in the challenge configuration "\
                          "specifying which fields are to be ranked. Add this to the "\
-                         "definition of challenge_evaluations in ad_challenge_scoring.py.")
+                         "definition of config_evaluations in ad_challenge_scoring.py.")
 
 
 def command_check_status(args):
@@ -457,20 +458,19 @@ def command_reset(args):
 
 
 def command_score_challenge(args):
-    for challenge_config in challenge_evaluations:
+    for challenge_config in ad_challenge_scoring.config_evaluations:
         if challenge_config.get('score_as_part_of_challenge', False):
             evaluation = syn.getEvaluation(challenge_config['id'])
 
-            validation_function = globals()[challenge_config['validation_function']]
-            validate(evaluation, validation_function,
-                send_messages=args.send_messages,
-                notifications=args.notifications,
-                dry_run=args.dry_run,
-                submission_quota=challenge_config.get('submission_quota',None))
+            validate(evaluation=evaluation,
+                     validation_func=ad_challenge_scoring.validate_submission,
+                     send_messages=args.send_messages,
+                     notifications=args.notifications,
+                     dry_run=args.dry_run,
+                     submission_quota=challenge_config.get('submission_quota',None))
 
-            scoring_function = globals()[challenge_config['scoring_function']]
             num_scored = score(evaluation=evaluation,
-                               scoring_func=scoring_function,
+                               scoring_func=ad_challenge_scoring.score_submission,
                                send_messages=args.send_messages,
                                notifications=args.notifications,
                                dry_run=args.dry_run,
