@@ -3,30 +3,28 @@
 ############################################################
 suppressMessages(require(pROC))
 suppressMessages(require(epiR))
-suppressMessages(require(synapseClient))
 
 
 DATA_DIR = "data/scoring"
 
-## cache the answers so we don't keep reading them
-EXPECTED_FORMAT_FILES = list()
+## cache the scoring data so we don't keep re-reading it
+SCORING_DATA_CACHE = list()
 
 ## read either a csv or tab delimited file and return a data frame
-read_delim_or_csv <- function(filename) {
-    if (grepl('.csv$', filename)) {
-        read.csv(filename, stringsAsFactors=FALSE)
+read_delim_or_csv <- function(path) {
+    if (grepl('.csv$', path)) {
+        read.csv(path, stringsAsFactors=FALSE)
     } else {
-        read.table(filename, header=TRUE, quote="\"", fill=TRUE, stringsAsFactors=FALSE)
+        read.table(path, header=TRUE, quote="\"", fill=TRUE, stringsAsFactors=FALSE)
     }
 }
 
-## get the test data from cache or read from disk
-get_expected_format <- function(filename) {
-    if (!(filename %in% names(EXPECTED_FORMAT_FILES))) {
-        expected <- read_delim_or_csv(file.path(DATA_DIR, filename))
-        EXPECTED_FORMAT_FILES[[filename]] <- expected
+## get the scoring data from cache or read from disk
+read_scoring_data <- function(filename) {
+    if (!(filename %in% names(SCORING_DATA_CACHE))) {
+        SCORING_DATA_CACHE[[filename]] <- read_delim_or_csv(file.path(DATA_DIR, filename))
     }
-    return(EXPECTED_FORMAT_FILES[[filename]])
+    return(SCORING_DATA_CACHE[[filename]])
 }
 
 
@@ -89,9 +87,9 @@ validate_sample_ids <- function(expected_ids, submitted_ids) {
 }
 
 
-validate_q1 <- function(filename) {
-    df = read_delim_or_csv(filename)
-    expected = get_expected_format("q1.txt")
+validate_q1 <- function(submission_path, expected_filename) {
+    df = read_delim_or_csv(submission_path)
+    expected = read_scoring_data(expected_filename)
     result = validate_data_frame(expected, df)
     if (!result$valid) {
         return(result)
@@ -114,9 +112,9 @@ validate_q1 <- function(filename) {
     return(result)
 }
 
-validate_q2 <- function(filename) {
-    df = read_delim_or_csv(filename)
-    expected = get_expected_format("q2.txt")
+validate_q2 <- function(submission_path, expected_filename) {
+    df = read_delim_or_csv(submission_path)
+    expected = read_scoring_data(expected_filename)
     result = validate_data_frame(expected, df)
 
     if (!result$valid) {
@@ -142,9 +140,9 @@ validate_q2 <- function(filename) {
     return(result)
 }
 
-validate_q3 <- function(filename) {
-    df = read_delim_or_csv(filename)
-    expected = get_expected_format("q3.txt")
+validate_q3 <- function(submission_path, expected_filename) {
+    df = read_delim_or_csv(submission_path)
+    expected = read_scoring_data(expected_filename)
 
     result = validate_data_frame(expected, df)
     if (!result$valid) {
@@ -299,20 +297,20 @@ Q3_score <- function (predicted, observed) {
 }
 
 
-score_q1 <- function(filename) {
-    predicted = read_delim_or_csv(filename)
-    observed = get_expected_format("q1.rosmap.csv")
+score_q1 <- function(submission_path, observed_path) {
+    predicted = read_delim_or_csv(submission_path)
+    observed = read_scoring_data(observed_path) #"q1.rosmap.csv")
     Q1_score(predicted, observed)
 }
 
-score_q2 <- function(filename) {
-    predicted = read_delim_or_csv(filename)
-    observed = get_expected_format("q2.observed.txt")
+score_q2 <- function(submission_path, observed_path) {
+    predicted = read_delim_or_csv(submission_path)
+    observed = read_scoring_data(observed_path) #"q2.observed.txt")
     Q2_score(predicted, observed)
 }
 
-score_q3 <- function(filename) {
-    predicted = read_delim_or_csv(filename)
-    observed = get_expected_format("q3.observed.csv")
+score_q3 <- function(submission_path, observed_path) {
+    predicted = read_delim_or_csv(submission_path)
+    observed = read_scoring_data(observed_path) #"q3.observed.csv")
     Q3_score(predicted, observed)
 }

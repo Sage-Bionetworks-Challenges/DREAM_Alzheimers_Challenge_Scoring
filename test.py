@@ -10,14 +10,17 @@ from collections import OrderedDict
 syn = synapseclient.Synapse()
 syn.login()
 
-CLEANUP = False
+CLEANUP = True
 
 ## module scope variable to hold project
 project = None
 evaluation = None
 
+ad_challenge = challenge.ad_challenge_scoring
+
 ## point the scoring code at the test files rather than real challenge assets
-challenge.robjects.r('DATA_DIR <- "test_data"')
+ad_challenge.robjects.r('DATA_DIR <- "test_data"')
+
 
 WIKI_TEMPLATE = """\
 
@@ -38,9 +41,23 @@ try:
     project = syn.store(Project("Alzheimers scoring test project" + unicode(uuid.uuid4())))
     print "Project:", project.id, project.name
 
-    print "\n\nQ1 --------------------"
     q1_evaluation = syn.store(Evaluation(name=unicode(uuid.uuid4()), description="for testing Q1", contentSource=project.id))
     print "Evaluation, Q1:", q1_evaluation.id
+
+    q2_evaluation = syn.store(Evaluation(name=unicode(uuid.uuid4()), description="for testing Q2", contentSource=project.id))
+    print "Evaluation, Q2:", q2_evaluation.id
+
+    q3_evaluation = syn.store(Evaluation(name=unicode(uuid.uuid4()), description="for testing Q3", contentSource=project.id))
+    print "Evaluation, Q3:", q3_evaluation.id
+
+    ## fix up config_evaluations to refer to these evaluations
+    ad_challenge.config_evaluations[0]['id'] = q1_evaluation.id
+    ad_challenge.config_evaluations[1]['id'] = q2_evaluation.id
+    ad_challenge.config_evaluations[2]['id'] = q3_evaluation.id
+    ad_challenge.config_evaluations_map = {ev['id']:ev for ev in ad_challenge.config_evaluations}
+
+
+    print "\n\nQ1 --------------------"
 
     for filename in glob.iglob("test_data/q1.0*"):
         entity = syn.store(File(filename, parent=project))
@@ -53,16 +70,14 @@ try:
 
     list_submissions(q1_evaluation)
 
-    validate(q1_evaluation, validation_func=challenge.validate_q1, submission_quota=1)
-    score(q1_evaluation, scoring_func=challenge.score_q1)
+    validate(q1_evaluation, validation_func=ad_challenge.validate_submission, submission_quota=1)
+    score(q1_evaluation, scoring_func=ad_challenge.score_submission)
     rank(q1_evaluation, fields=['correlation_pearson_clin',
-                             'correlation_pearson_clin_gen',
+                            'correlation_pearson_clin_gen',
                              'correlation_spearman_clin',
                              'correlation_spearman_clin_gen'])
 
     print "\n\nQ2 --------------------"
-    q2_evaluation = syn.store(Evaluation(name=unicode(uuid.uuid4()), description="for testing Q2", contentSource=project.id))
-    print "Evaluation, Q2:", q2_evaluation.id
 
     for filename in glob.iglob("test_data/q2.0*"):
         entity = syn.store(File(filename, parent=project))
@@ -70,13 +85,11 @@ try:
 
     list_submissions(q2_evaluation)
 
-    validate(q2_evaluation, validation_func=challenge.validate_q2)
-    score(q2_evaluation, scoring_func=challenge.score_q2)
+    validate(q2_evaluation, validation_func=ad_challenge.validate_submission)
+    score(q2_evaluation, scoring_func=ad_challenge.score_submission)
     rank(q2_evaluation, fields=['auc', 'accuracy'])
 
     print "\n\nQ3 --------------------"
-    q3_evaluation = syn.store(Evaluation(name=unicode(uuid.uuid4()), description="for testing Q3", contentSource=project.id))
-    print "Evaluation, Q3:", q3_evaluation.id
 
     for filename in glob.iglob("test_data/q3.0*"):
         entity = syn.store(File(filename, parent=project))
@@ -84,8 +97,8 @@ try:
 
     list_submissions(q3_evaluation)
 
-    validate(q3_evaluation, validation_func=challenge.validate_q3)
-    score(q3_evaluation, scoring_func=challenge.score_q3)
+    validate(q3_evaluation, validation_func=ad_challenge.validate_submission)
+    score(q3_evaluation, scoring_func=ad_challenge.score_submission)
     rank(q3_evaluation, fields=['pearson_mmse', 'ccc_mmse'])
 
     wiki = Wiki(title="Leaderboards",
