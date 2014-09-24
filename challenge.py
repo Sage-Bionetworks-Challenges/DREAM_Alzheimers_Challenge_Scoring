@@ -42,20 +42,7 @@ SEND_VALIDATION_SUCCESS = False
 syn = None
 
 
-
 ## read in email templates
-with open("templates/confirmation_email.txt") as f:
-    confirmation_template = f.read()
-
-with open("templates/validation_error_email.txt") as f:
-    validation_error_template = f.read()
-
-with open("templates/scored_email.txt") as f:
-    scored_template = f.read()
-
-with open("templates/scoring_error_email.txt") as f:
-    scoring_error_template = f.read()
-
 with open("templates/error_notification_email.txt") as f:
     error_notification_template = f.read()
 
@@ -148,7 +135,8 @@ def validate(evaluation,
              send_messages=False,
              notifications=False,
              dry_run=False,
-             submission_quota=None):
+             submission_quota=None,
+             config={}):
     """
     It may be convenient to validate submissions in one pass before scoring
     them, especially if scoring takes a long time.
@@ -200,10 +188,11 @@ def validate(evaluation,
         print submission.id, submission.name, submission.userId, status.status
 
         ## send message AFTER storing status to ensure we don't get repeat messages
-        if send_messages and (status.status=="INVALID" or SEND_VALIDATION_SUCCESS):
-            template = confirmation_template if status.status=="VALIDATED" else validation_error_template
-            response = send_message(template, submission, status.status, evaluation, validation_message)
-            print "sent message: ", response
+        if send_messages:
+            template = config.get("validation_confirmation_template" if status.status=="VALIDATED" else "validation_error_template", None)
+            if template:
+                response = send_message(template, submission, status.status, evaluation, validation_message)
+                print "sent message: ", response
 
         if notifications and status.status=="INVALID":
             response = syn.sendMessage(
@@ -226,7 +215,8 @@ def score(evaluation,
           send_messages=False,
           notifications=False,
           dry_run=False,
-          submission_quota=None):
+          submission_quota=None,
+          config={}):
 
     sys.stdout.write('\n\n' + '-' * 60 + '\n')
     sys.stdout.write('scoring evaluation: %s %s\n' % (evaluation.id, evaluation.name))
@@ -302,7 +292,7 @@ def score(evaluation,
 
     if send_messages:
         for submission, status, message in izip(submissions, statuses, messages):
-            template = scored_template if status.status=="SCORED" else scoring_error_template
+            template = config["scored_template" if status.status=="SCORED" else "scoring_error_template"]
             response = send_message(template, submission, status.status, evaluation, message)
             print "sent message: ", response
 
@@ -374,7 +364,6 @@ def list_evaluations():
         print "Evaluation: %s" % evaluation.id, evaluation.name
 
 
-
 def count_submissions_by_user(evaluation, status=None):
     submission_counts_by_user = {}
     for submission, status in syn.getSubmissionBundles(evaluation, status=status):
@@ -414,7 +403,8 @@ def command_validate(args):
              send_messages=args.send_messages,
              notifications=args.notifications,
              dry_run=args.dry_run,
-             submission_quota=challenge_config.get('submission_quota',None))
+             submission_quota=challenge_config.get('submission_quota',None),
+             config=challenge_config)
 
 
 def command_score(args):
@@ -427,7 +417,8 @@ def command_score(args):
                        send_messages=args.send_messages,
                        notifications=args.notifications,
                        dry_run=args.dry_run,
-                       submission_quota=challenge_config.get('submission_quota',None))
+                       submission_quota=challenge_config.get('submission_quota',None),
+                       config=challenge_config)
     if args.dry_run:
         print "dry run: no sense in ranking 'til we really score some submissions."
     elif num_scored > 0 and 'fields' in challenge_config:
@@ -481,14 +472,16 @@ def command_score_challenge(args):
                      send_messages=args.send_messages,
                      notifications=args.notifications,
                      dry_run=args.dry_run,
-                     submission_quota=challenge_config.get('submission_quota',None))
+                     submission_quota=challenge_config.get('submission_quota',None),
+                     config=challenge_config)
 
             num_scored = score(evaluation=evaluation,
                                scoring_func=ad_challenge_scoring.score_submission,
                                send_messages=args.send_messages,
                                notifications=args.notifications,
                                dry_run=args.dry_run,
-                               submission_quota=challenge_config.get('submission_quota',None))
+                               submission_quota=challenge_config.get('submission_quota',None),
+                               config=challenge_config)
             if args.dry_run:
                 print "dry run: no sense in ranking 'til we really score some submissions."
             elif num_scored > 0 and 'fields' in challenge_config:

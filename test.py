@@ -56,7 +56,6 @@ try:
     ad_challenge.config_evaluations[2]['id'] = int(q3_evaluation.id)
     ad_challenge.config_evaluations_map = {ev['id']:ev for ev in ad_challenge.config_evaluations}
 
-
     print "\n\nQ1 --------------------"
 
     for filename in glob.iglob("test_data/q1.0*"):
@@ -69,9 +68,19 @@ try:
     submission = syn.submit(q1_evaluation, entity, teamName="Mean Squared Error Blues")
 
     list_submissions(q1_evaluation)
+    challenge_config = ad_challenge.config_evaluations_map[int(q1_evaluation.id)]
 
-    validate(q1_evaluation, validation_func=ad_challenge.validate_submission, submission_quota=1)
-    score(q1_evaluation, scoring_func=ad_challenge.score_submission)
+    validate(q1_evaluation,
+        notifications=True,
+        send_messages=True,
+        validation_func=ad_challenge.validate_submission,
+        config=challenge_config,
+        submission_quota=1)
+    score(q1_evaluation,
+        notifications=True,
+        send_messages=True,
+        scoring_func=ad_challenge.score_submission,
+        config=challenge_config)
     rank(q1_evaluation, fields=['correlation_pearson_clin',
                             'correlation_pearson_clin_gen',
                              'correlation_spearman_clin',
@@ -84,9 +93,18 @@ try:
         submission = syn.submit(q2_evaluation, entity, name=filename, teamName="Mean Squared Error Blues")
 
     list_submissions(q2_evaluation)
+    challenge_config = ad_challenge.config_evaluations_map[int(q2_evaluation.id)]
 
-    validate(q2_evaluation, validation_func=ad_challenge.validate_submission)
-    score(q2_evaluation, scoring_func=ad_challenge.score_submission)
+    validate(q2_evaluation,
+        notifications=True,
+        send_messages=True,
+        validation_func=ad_challenge.validate_submission,
+        config=challenge_config)
+    score(q2_evaluation,
+        notifications=True,
+        send_messages=True,
+        scoring_func=ad_challenge.score_submission,
+        config=challenge_config)
     rank(q2_evaluation, fields=['auc', 'accuracy'])
 
     print "\n\nQ3 --------------------"
@@ -96,9 +114,18 @@ try:
         submission = syn.submit(q3_evaluation, entity, name=filename, teamName="Mean Squared Error Blues")
 
     list_submissions(q3_evaluation)
+    challenge_config = ad_challenge.config_evaluations_map[int(q3_evaluation.id)]
 
-    validate(q3_evaluation, validation_func=ad_challenge.validate_submission)
-    score(q3_evaluation, scoring_func=ad_challenge.score_submission)
+    validate(q3_evaluation,
+        notifications=True,
+        send_messages=True,
+        validation_func=ad_challenge.validate_submission,
+        config=challenge_config)
+    score(q3_evaluation,
+        notifications=True,
+        send_messages=True,
+        scoring_func=ad_challenge.score_submission,
+        config=challenge_config)
     rank(q3_evaluation, fields=['pearson_mmse', 'ccc_mmse'])
 
     wiki = Wiki(title="Leaderboards",
