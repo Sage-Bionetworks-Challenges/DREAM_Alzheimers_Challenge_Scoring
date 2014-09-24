@@ -6,8 +6,26 @@
 ## Communication with R is through the RPy2 package.
 ############################################################
 
+
 import rpy2.robjects as robjects
 import synapseclient
+
+
+# read in email templates
+with open("templates/confirmation_email.txt") as f:
+    validation_confirmation_template = f.read()
+
+with open("templates/validation_error_email.txt") as f:
+    validation_error_template = f.read()
+
+with open("templates/scored_email.txt") as f:
+    scored_template = f.read()
+
+with open("templates/scored_final_email.txt") as f:
+    scored_final_template = f.read()
+
+with open("templates/scoring_error_email.txt") as f:
+    scoring_error_template = f.read()
 
 
 ## Configure scoring of evaluation queues
@@ -33,6 +51,9 @@ config_evaluations = [
                    'correlation_pearson_clin_gen',
                    'correlation_spearman_clin',
                    'correlation_spearman_clin_gen'],
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_template,
+        'scoring_error_template': scoring_error_template,
         'submission_quota': 100
     },
 
@@ -45,6 +66,9 @@ config_evaluations = [
         'scoring_function': 'score_q2',
         'observed': 'q2.observed.txt',
         'fields': ['auc', 'accuracy'],
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_template,
+        'scoring_error_template': scoring_error_template,
         'submission_quota': 50
     },
 
@@ -57,6 +81,9 @@ config_evaluations = [
         'scoring_function': 'score_q3',
         'observed': 'q3.observed.csv',
         'fields': ['pearson_mmse', 'ccc_mmse'],
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_template,
+        'scoring_error_template': scoring_error_template,
         'submission_quota': 50
     },
 
@@ -72,7 +99,9 @@ config_evaluations = [
                    'correlation_pearson_clin_gen',
                    'correlation_spearman_clin',
                    'correlation_spearman_clin_gen'],
-        'submission_quota': 2
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_final_template,
+        'scoring_error_template': scoring_error_template,
     },
 
     ## Q2 final
@@ -84,7 +113,9 @@ config_evaluations = [
         'scoring_function': 'score_q2',
         'observed': 'q2.final.observed.txt',
         'fields': ['auc', 'accuracy'],
-        'submission_quota': 2
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_final_template,
+        'scoring_error_template': scoring_error_template,
     },
 
     ## Q3 final
@@ -96,7 +127,9 @@ config_evaluations = [
         'scoring_function': 'score_q3',
         'observed': 'q3.final.observed.txt',
         'fields': ['pearson_mmse', 'ccc_mmse'],
-        'submission_quota': 2
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_final_template,
+        'scoring_error_template': scoring_error_template,
     },
 
     ## testing
@@ -105,7 +138,11 @@ config_evaluations = [
         'score_as_part_of_challenge': False,
         'validation_function': 'validate_q3',
         'scoring_function': 'score_q3',
-        'fields': ['pearson_mmse', 'ccc_mmse']
+        'fields': ['pearson_mmse', 'ccc_mmse'],
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_template,
+        'scoring_error_template': scoring_error_template,
+
     },
 
     ## use old Q1b queue for testing, too
@@ -118,6 +155,9 @@ config_evaluations = [
            'correlation_pearson_clin_gen',
            'correlation_spearman_clin',
            'correlation_spearman_clin_gen'],
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_template,
+        'scoring_error_template': scoring_error_template,
         'submission_quota': 50
     }
 ]
