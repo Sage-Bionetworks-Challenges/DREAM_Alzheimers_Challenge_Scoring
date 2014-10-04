@@ -54,7 +54,7 @@ config_evaluations = [
         'validation_error_template': validation_error_template,
         'scored_template': scored_template,
         'scoring_error_template': scoring_error_template,
-        'submission_quota': 100
+        'submission_quota': 105
     },
 
     ## Q2
@@ -69,7 +69,7 @@ config_evaluations = [
         'validation_error_template': validation_error_template,
         'scored_template': scored_template,
         'scoring_error_template': scoring_error_template,
-        'submission_quota': 50
+        'submission_quota': 55
     },
 
     ## Q3
@@ -84,7 +84,7 @@ config_evaluations = [
         'validation_error_template': validation_error_template,
         'scored_template': scored_template,
         'scoring_error_template': scoring_error_template,
-        'submission_quota': 50
+        'submission_quota': 55
     },
 
     ## Q1 final
