@@ -192,14 +192,14 @@ def validate(evaluation,
             template = config.get("validation_confirmation_template" if status.status=="VALIDATED" else "validation_error_template", None)
             if template:
                 response = send_message(template, submission, status.status, evaluation, validation_message)
-                print "sent message: ", response.encode('utf-8')
+                print "sent message: ", unicode(response).encode('utf-8')
 
         if notifications and status.status=="INVALID":
             response = syn.sendMessage(
                 userIds=ADMIN_USER_IDS,
                 messageSubject="AD Challenge exception during validation",
                 messageBody=error_notification_template.format(message=unicode(validation_message)))
-            print "sent notification: ", response.encode('utf-8')
+            print "sent notification: ", unicode(response).encode('utf-8')
 
     print "\nvalidated %d submissions." % count
     print '-' * 60 + '\n'
@@ -274,7 +274,7 @@ def score(evaluation,
                     userIds=ADMIN_USER_IDS,
                     messageSubject="AD Challenge: exception during scoring",
                     messageBody=error_notification_template.format(message=st.getvalue()))
-                print "sent notification: ", response.encode('utf-8')
+                print "sent notification: ", unicode(response).encode('utf-8')
 
         ## we could store each status update individually, but in this example
         ## we collect the updated status objects to do a batch update.
@@ -570,7 +570,7 @@ def challenge():
                 userIds=ADMIN_USER_IDS,
                 messageSubject="Exception in AD Challenge scoring harness",
                 messageBody=message)
-            print "sent notification: ", response.encode('utf-8')
+            print "sent notification: ", unicode(response).encode('utf-8')
 
     finally:
         update_lock.release()
