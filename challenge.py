@@ -111,13 +111,13 @@ def send_message(template, submission, status, evaluation, message):
 
     ## fill in the template
     message_body = template.format(
-        username=profile.get('firstName', profile.get('userName', profile['ownerId'])),
-        submission_id=submission.id,
-        submission_name=submission.name,
-        evaluation_id=evaluation.id,
-        evaluation_name=evaluation.name,
-        team=submission.get('submitterAlias', 'no team specified'),
-        message=message)
+        username=unicode(profile.get('firstName', profile.get('userName', profile['ownerId']))),
+        submission_id=unicode(submission.id),
+        submission_name=unicode(submission.name),
+        evaluation_id=unicode(evaluation.id),
+        evaluation_name=unicode(evaluation.name),
+        team=unicode(submission.get('submitterAlias', 'no team specified')),
+        message=unicode(message))
 
     return syn.sendMessage(
         userIds=[submission.userId],
@@ -198,7 +198,7 @@ def validate(evaluation,
             response = syn.sendMessage(
                 userIds=ADMIN_USER_IDS,
                 messageSubject="AD Challenge exception during validation",
-                messageBody=error_notification_template.format(message=validation_message))
+                messageBody=error_notification_template.format(message=unicode(validation_message)))
             print "sent notification: ", response.encode('utf-8')
 
     print "\nvalidated %d submissions." % count
@@ -294,7 +294,7 @@ def score(evaluation,
         for submission, status, message in izip(submissions, statuses, messages):
             template = config["scored_template" if status.status=="SCORED" else "scoring_error_template"]
             response = send_message(template, submission, status.status, evaluation, message)
-            print "sent message: ", response.encode('utf-8')
+            print "sent message: ", unicode(response).encode('utf-8')
 
 
     print "\nscored %d submissions." % len(submissions)
@@ -459,7 +459,7 @@ def command_reset(args):
         status = syn.getSubmissionStatus(submission)
         status.status = args.status
         if not args.dry_run:
-            print syn.store(status).encode('utf-8')
+            print unicode(syn.store(status)).encode('utf-8')
 
 
 def command_score_challenge(args):

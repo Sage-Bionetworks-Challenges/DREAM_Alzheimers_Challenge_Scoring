@@ -13,19 +13,19 @@ import synapseclient
 
 # read in email templates
 with open("templates/confirmation_email.txt") as f:
-    validation_confirmation_template = f.read()
+    validation_confirmation_template = unicode(f.read())
 
 with open("templates/validation_error_email.txt") as f:
-    validation_error_template = f.read()
+    validation_error_template = unicode(f.read())
 
 with open("templates/scored_email.txt") as f:
-    scored_template = f.read()
+    scored_template = unicode(f.read())
 
 with open("templates/scored_final_email.txt") as f:
-    scored_final_template = f.read()
+    scored_final_template = unicode(f.read())
 
 with open("templates/scoring_error_email.txt") as f:
-    scoring_error_template = f.read()
+    scoring_error_template = unicode(f.read())
 
 
 ## Configure scoring of evaluation queues
