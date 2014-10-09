@@ -111,13 +111,13 @@ def send_message(template, submission, status, evaluation, message):
 
     ## fill in the template
     message_body = template.format(
-        username=profile.get('firstName', profile.get('userName', profile['ownerId'])),
-        submission_id=submission.id,
-        submission_name=submission.name,
-        evaluation_id=evaluation.id,
-        evaluation_name=evaluation.name,
-        team=submission.get('submitterAlias', 'no team specified'),
-        message=message)
+        username=unicode(profile.get('firstName', profile.get('userName', profile['ownerId']))),
+        submission_id=unicode(submission.id),
+        submission_name=unicode(submission.name),
+        evaluation_id=unicode(evaluation.id),
+        evaluation_name=unicode(evaluation.name),
+        team=unicode(submission.get('submitterAlias', 'no team specified')),
+        message=unicode(message))
 
     return syn.sendMessage(
         userIds=[submission.userId],
@@ -159,7 +159,7 @@ def validate(evaluation,
         if submission_quota and submission_counts_by_user.get(submission.userId, 0) >= submission_quota:
             status.status = "INVALID"
             validation_message = "You have reached the submission quota. You have submitted %d entries out of a maximum of %d allowed." % (submission_counts_by_user.get(submission.userId, 0), submission_quota)
-            print validation_message
+            print validation_message.encode('utf-8')
 
         else:
             ## refetch the submission so that we get the file path
@@ -185,21 +185,21 @@ def validate(evaluation,
             submission_counts_by_user.setdefault(submission.userId, 0)
             submission_counts_by_user[submission.userId] += 1
 
-        print submission.id, submission.name, submission.userId, status.status
+        print submission.id, submission.name.encode('utf-8'), submission.userId, status.status
 
         ## send message AFTER storing status to ensure we don't get repeat messages
         if send_messages:
             template = config.get("validation_confirmation_template" if status.status=="VALIDATED" else "validation_error_template", None)
             if template:
                 response = send_message(template, submission, status.status, evaluation, validation_message)
-                print "sent message: ", response
+                print "sent message: ", response.encode('utf-8')
 
         if notifications and status.status=="INVALID":
             response = syn.sendMessage(
                 userIds=ADMIN_USER_IDS,
                 messageSubject="AD Challenge exception during validation",
-                messageBody=error_notification_template.format(message=validation_message))
-            print "sent notification: ", response
+                messageBody=error_notification_template.format(message=unicode(validation_message)))
+            print "sent notification: ", response.encode('utf-8')
 
     print "\nvalidated %d submissions." % count
     print '-' * 60 + '\n'
@@ -274,7 +274,7 @@ def score(evaluation,
                     userIds=ADMIN_USER_IDS,
                     messageSubject="AD Challenge: exception during scoring",
                     messageBody=error_notification_template.format(message=st.getvalue()))
-                print "sent notification: ", response
+                print "sent notification: ", response.encode('utf-8')
 
         ## we could store each status update individually, but in this example
         ## we collect the updated status objects to do a batch update.
@@ -282,7 +282,7 @@ def score(evaluation,
         statuses.append(status)
         submissions.append(submission)
 
-        print submission.id, submission.name, submission.userId, status.status
+        print submission.id, submission.name.encode('utf-8'), submission.userId, status.status
 
     ## Update statuses in batch. This can be much faster than individual updates,
     ## especially in rank based scoring methods which recalculate scores for all
@@ -294,7 +294,7 @@ def score(evaluation,
         for submission, status, message in izip(submissions, statuses, messages):
             template = config["scored_template" if status.status=="SCORED" else "scoring_error_template"]
             response = send_message(template, submission, status.status, evaluation, message)
-            print "sent message: ", response
+            print "sent message: ", unicode(response).encode('utf-8')
 
 
     print "\nscored %d submissions." % len(submissions)
@@ -342,7 +342,7 @@ def rank(evaluation, fields=[], dry_run=False):
     else:
         print "dry run: would have updated %d submissions" % len(statuses)
         for record in sorted(ranking, key=lambda x: x[2]):
-            print "\t".join(str(x) for x in record)
+            print "\t".join(unicode(x) for x in record).encode('utf-8')
 
     sys.stdout.write('\n\n' + '-' * 60 + '\n')
 
@@ -352,7 +352,7 @@ def list_submissions(evaluation, status=None, **kwargs):
     print '-' * 60
 
     for submission, status in syn.getSubmissionBundles(evaluation, status=status):
-        print submission.id, submission.createdOn, status.status, submission.name, submission.userId
+        print submission.id, submission.createdOn, status.status, submission.name.encode('utf-8'), submission.userId
 
 
 def list_evaluations():
@@ -361,7 +361,7 @@ def list_evaluations():
 
     for challenge_config in ad_challenge_scoring.config_evaluations:
         evaluation = syn.getEvaluation(challenge_config['id'])
-        print "Evaluation: %s" % evaluation.id, evaluation.name
+        print "Evaluation: %s" % evaluation.id, evaluation.name.encode('utf-8')
 
 
 def count_submissions_by_user(evaluation, status=None):
@@ -449,9 +449,9 @@ def command_check_status(args):
     ## deleting the entity key is a hack to work around a bug which prevents
     ## us from printing a submission
     del submission['entity']
-    print evaluation
-    print submission
-    print status
+    print unicode(evaluation).encode('utf-8')
+    print unicode(submission).encode('utf-8')
+    print unicode(status).encode('utf-8')
 
 
 def command_reset(args):
@@ -459,7 +459,7 @@ def command_reset(args):
         status = syn.getSubmissionStatus(submission)
         status.status = args.status
         if not args.dry_run:
-            print syn.store(status)
+            print unicode(syn.store(status)).encode('utf-8')
 
 
 def command_score_challenge(args):
@@ -570,7 +570,7 @@ def challenge():
                 userIds=ADMIN_USER_IDS,
                 messageSubject="Exception in AD Challenge scoring harness",
                 messageBody=message)
-            print "sent notification: ", response
+            print "sent notification: ", response.encode('utf-8')
 
     finally:
         update_lock.release()
