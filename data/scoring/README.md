@@ -7,3 +7,4 @@ Truth files are secret and not kept in source control and must be uploaded to th
 
 They are loaded by the validate_Q[n] and score_Q[n] functions in the R source file _validate_and_score.R_. See lines that contain calls that look like: _get_expected_format("q1.rosmap.csv")_.
 
+See the Synapse project [ADChallenge_WorkingGroup](https://www.synapse.org/#!Synapse:syn2480825).
