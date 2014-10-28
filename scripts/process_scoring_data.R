@@ -30,6 +30,21 @@ q2$Rank <- rank(1-q2$Confidence)
 q2$Discordance <- ifelse(q2$Confidence > 0.5, 1, 0)
 write.table(q2, file='q2.txt', quote=F, sep='\t', row.names=F, col.names=T)
 
-
+## flip these bastard labels!
 q2_observed <- read.table('data/scoring/q2.observed.txt', header=T, stringsAsFactors=F)
 q2_observed$actual_discordance_string <- ifelse(q2_observed$actual_discordance == 1, 'discordant', 'concordant')
+
+
+
+
+
+
+
+
+library(synapseClient)
+synapseLogin('chris.bare')
+
+ad_working_group_project_id <- 'syn2343636'
+folder <- 'syn2773668'
+eids <- c(2480744, 2480748, 2480750, 2700269, 2700271, 2700273)
+

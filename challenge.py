@@ -11,6 +11,10 @@ from datetime import datetime, timedelta
 from itertools import izip
 from StringIO import StringIO
 
+## TODO: show submission and evaluation info in error emails
+## TODO: better error messaging around incorrect samples
+## open submission, close submission
+
 ## import challenge specific validation and scoring and configuration
 import ad_challenge_scoring
 
