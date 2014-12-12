@@ -9,3 +9,7 @@
 
 # Python compiled files
 *.pyc
+
+data/scoring/*
+data/final_scoring_data_prep/*
+data/meta*

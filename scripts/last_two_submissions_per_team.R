@@ -19,9 +19,12 @@ for (abr in c("q1f", "q2f", "q3f")) {
     df <- get(paste0(abr,".submissions.metadata"))
 
     ## curses upon you, stringsAsFactors!
-    df$createdOn <- as.character(df$createdOn)
-    df$team <- as.character(df$team)
-    df$userId <- as.character(df$userId)
+    for (i in which(sapply(df, class)=='factor')) {
+        df[[i]] <- as.character(df[[i]])
+    }
+
+    ## remove bogus columns
+    df <- df[,-which(colnames(df) %in% c('entityId.1', 'submission_number'))]
 
     ## remove admin team users
     ## 1421212 = Chris Bare
@@ -61,4 +64,16 @@ for (abr in c("q1f", "q2f", "q3f")) {
 
     assign(paste0(abr, ".eligible.submissions.metadata"), df_latest_two)
 }
+
+save(q1f.eligible.submissions.metadata, file='q1f.eligible.submissions.metadata.RData')
+save(q2f.eligible.submissions.metadata, file='q2f.eligible.submissions.metadata.RData')
+save(q3f.eligible.submissions.metadata, file='q3f.eligible.submissions.metadata.RData')
+
+# syn2786256
+# syn2786258
+# syn2786260
+
+synStore(File('q1f.eligible.submissions.metadata.RData', parentId="syn2773668"), used="syn2775267", executed="syn2786177")
+synStore(File('q2f.eligible.submissions.metadata.RData', parentId="syn2773668"), used="syn2775268", executed="syn2786177")
+synStore(File('q3f.eligible.submissions.metadata.RData', parentId="syn2773668"), used="syn2775269", executed="syn2786177")
 
