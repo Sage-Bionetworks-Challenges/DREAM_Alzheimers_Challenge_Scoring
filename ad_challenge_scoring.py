@@ -24,6 +24,9 @@ with open("templates/scored_email.txt") as f:
 with open("templates/scored_final_email.txt") as f:
     scored_final_template = unicode(f.read())
 
+with open("templates/scored_community_phase_email.txt") as f:
+    scored_community_phase_template = unicode(f.read())
+
 with open("templates/scoring_error_email.txt") as f:
     scoring_error_template = unicode(f.read())
 
@@ -42,7 +45,7 @@ config_evaluations = [
     ## Q1
     {
         'id':2480744,
-        'score_as_part_of_challenge': True,
+        'score_as_part_of_challenge': False,
         'validation_function': 'validate_q1',
         'validation_expected_format': 'q1.txt',
         'scoring_function': 'score_q1',
@@ -60,7 +63,7 @@ config_evaluations = [
     ## Q2
     {
         'id':2480748,
-        'score_as_part_of_challenge': True,
+        'score_as_part_of_challenge': False,
         'validation_function': 'validate_q2',
         'validation_expected_format': 'q2.txt',
         'scoring_function': 'score_q2',
@@ -75,7 +78,7 @@ config_evaluations = [
     ## Q3
     {
         'id':2480750,
-        'score_as_part_of_challenge': True,
+        'score_as_part_of_challenge': False,
         'validation_function': 'validate_q3',
         'validation_expected_format': 'q3.txt',
         'scoring_function': 'score_q3',
@@ -90,7 +93,7 @@ config_evaluations = [
     ## Q1 final
     {
         'id':2700269,
-        'score_as_part_of_challenge': True,
+        'score_as_part_of_challenge': False,
         'validation_function': 'validate_q1',
         'validation_expected_format': 'q1.final.example.txt',
         'scoring_function': 'score_q1',
@@ -107,7 +110,7 @@ config_evaluations = [
     ## Q2 final
     {
         'id':2700271,
-        'score_as_part_of_challenge': True,
+        'score_as_part_of_challenge': False,
         'validation_function': 'validate_q2',
         'validation_expected_format': 'q2.final.example.txt',
         'scoring_function': 'score_q2',
@@ -121,7 +124,7 @@ config_evaluations = [
     ## Q3 final
     {
         'id':2700273,
-        'score_as_part_of_challenge': True,
+        'score_as_part_of_challenge': False,
         'validation_function': 'validate_q3',
         'validation_expected_format': 'q3.final.example.txt',
         'scoring_function': 'score_q3',
@@ -131,6 +134,52 @@ config_evaluations = [
         'scored_template': scored_final_template,
         'scoring_error_template': scoring_error_template,
     },
+
+    ## Q1 community phase
+    {
+        'id':2924418,
+        'score_as_part_of_challenge': True,
+        'validation_function': 'validate_q1',
+        'validation_expected_format': 'q1.txt',
+        'scoring_function': 'score_q1',
+        'observed': 'q1.rosmap.csv',
+        'fields': ['correlation_pearson_clin',
+                   'correlation_pearson_clin_gen',
+                   'correlation_spearman_clin',
+                   'correlation_spearman_clin_gen'],
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_community_phase_template,
+        'scoring_error_template': scoring_error_template,
+    },
+
+    ## Q2 community phase
+    {
+        'id':2924420,
+        'score_as_part_of_challenge': True,
+        'validation_function': 'validate_q2',
+        'validation_expected_format': 'q2.txt',
+        'scoring_function': 'score_q2',
+        'observed': 'q2.observed.txt',
+        'fields': ['auc', 'accuracy'],
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_community_phase_template,
+        'scoring_error_template': scoring_error_template,
+    },
+
+    ## Q3 community phase
+    {
+        'id':2924422,
+        'score_as_part_of_challenge': True,
+        'validation_function': 'validate_q3',
+        'validation_expected_format': 'q3.txt',
+        'scoring_function': 'score_q3',
+        'observed': 'q3.observed.csv',
+        'fields': ['pearson_mmse', 'ccc_mmse'],
+        'validation_error_template': validation_error_template,
+        'scored_template': scored_community_phase_template,
+        'scoring_error_template': scoring_error_template,
+    },
+
 
     ## testing
     {
