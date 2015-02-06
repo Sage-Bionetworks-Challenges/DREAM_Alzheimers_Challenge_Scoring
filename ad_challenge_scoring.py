@@ -9,6 +9,7 @@
 
 import rpy2.robjects as robjects
 import synapseclient
+import math
 
 
 # read in email templates
@@ -265,6 +266,14 @@ def validate_submission(evaluation, submission, status):
     status.status = "VALIDATED" if result['valid'] else "INVALID"
     return status, result['message']
 
+## these scoring statistics may return NANs, which will be remapped to another value
+correlation_keys = [
+    "correlation_pearson_clin",
+    "correlation_pearson_clin_gen",
+    "correlation_spearman_clin",
+    "correlation_spearman_clin_gen",
+    "pearson_mmse",
+    "ccc_mmse"]
 
 def score_submission(evaluation, submission, status):
     """
@@ -279,6 +288,11 @@ def score_submission(evaluation, submission, status):
 
     ## call an R function with signature: function(submission_path, observed_path)
     result = as_dict(r_score_submission(submission.filePath, config['observed']))
+    ## change NANs to -99, because JSON is broken for NANs and -99 is
+    ## outside the space of correlation values
+    for key,value in result.iteritems():
+        if key in correlation_keys and math.isnan(value):
+            result[key] = -99.0
     print result
     status.status = "SCORED"
 
